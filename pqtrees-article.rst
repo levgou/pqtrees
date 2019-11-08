@@ -1,24 +1,8 @@
+.. include:: ./definitions.rst
+
 **************************
 PQ Trees - Article
 **************************
-
-.. |eqq| replace:: :math:`\equiv`
-.. |iff| replace:: :math:`\leftrightarrow`
-
-
-.. |pi| replace:: :math:`\pi`
-.. |Pi| replace:: :math:`\Pi`
-.. |Sig| replace:: :math:`\Sigma`
-.. |C_Pi| replace:: :math:`C_{\Pi}`
-.. |T_C| replace:: :math:`T_C`
-
-.. |p1| replace:: :math:`p_1`
-.. |p2| replace:: :math:`p_2`
-.. |T1| replace:: :math:`T_1`
-.. |T2| replace:: :math:`T_2`
-.. |C_T| replace:: :math:`C(T)`
-.. |REDUCE| replace:: :math:`REDUCE(I, T')`
-
 
 Key points
 =================
@@ -97,38 +81,63 @@ A PQ tree that has:
 
 |REDUCE|
 -----------------------
-Given a collection I of subsets of :math:`N = \{1, 2,...,n\}` and a PQ tree T'
-whose leaves are :math:`\{1, 2,...,n\}`, the function |REDUCE| builds a PQ tree T
+Given a collection I of subsets of :math:`N = \{1, 2,...,n\}` (:math:`I \subseteq P(N)`)
+and a PQ tree T' whose leaves are :math:`\{1, 2,...,n\}`, the function |REDUCE| builds a PQ tree T
 such that :math:`f \in C(T)` |iff| :math:`f \in C(T')`
-and every :math:`i \in I` appears as a consecutive substring of f.
+and every :math:`i \in I` appears as a consecutive substring of |f|.
 
 
 
 Minimal consensus PQ tree
 ------------------------------
 
-|Pi|
+|pi_|
 ^^^^^^^^^^
 The set of k permutations :math:`\pi_1, \pi_2, ..., \pi_k` representing k occurrences
-of a  |pi| pattern :math:`N = \{1, 2,...,n\}`.
+of a |pi| pattern :math:`N = \{1, 2,...,n\}`.
 
 Definition
 ^^^^^^^^^^^^^^^
-Given |Pi|, A consensus PQ tree T of |Pi| is such that :math:`\Pi \subseteq C(T)`,
+Given |pi_|, A consensus PQ tree T of |pi_| is such that :math:`\Pi \subseteq C(T)`,
 and the consensus PQ tree is minimal when there exists no :math:`T' \nequiv T` such that
 :math:`\Pi \subseteq C(T')'`  and  :math:`|C(T')| < |C(T)|`.
 
 Common interval (|C_Pi|)
 ---------------------------
-Given |Pi|, w.l.o.g. we assume that :math:`\pi_1 = id_n \coloneqq (1, 2, . . . , n)`.
-An interval :math:`[i, j ] (1 \leq i<j \leq n)` is called a common interval of |Pi| iff
+Given |pi_|, w.l.o.g. we assume that :math:`\pi_1 = id_n \coloneqq (1, 2, . . . , n)`.
+An interval :math:`[i, j ] (1 \leq i<j \leq n)` is called a common interval of |pi_| iff
 the elements of the set :math:`\{i, i+1,...,j \}` appear as a consecutive substring
 in every :math:`\pi_i \in \Pi (i = 1, 2,... , k)`. The set of all common intervals of
-|Pi| is denoted |C_Pi|.
+|pi_| is denoted |C_Pi|.
 
 .. image:: ./images/figure3.png
+
+|T_U|
+----------
+Given a finite set X, the PQ tree consisting of a single P node with :math:`|X|`
+children that are all leaves is called the universal PQ tree.
 
 
 Theorem 1
 -------------
-Given :math:`\Pi, T_C = REDUCE(C_\Pi, T_U)` is a minimal consensus PQ tree of |Pi|.
+Given |pi_|,   :math:`T_C = REDUCE(C_\Pi, T_U)` is a minimal consensus PQ tree of |pi_|.
+
+
+PQ subtree
+--------------
+Given a PQ tree T , the variant v of a node v' is defined as follows:
+
+1. If v is a P node, then its only variant v' is the P node itself.
+2. If v is a Q node with k children, then a variant v' of v is a Q node with any
+   k' |leq| k consecutive children of v.
+
+A PQ subtree is rooted at a variant v' of node v and includes all its descendants in the PQ tree T .
+
+Let |L_v|
+^^^^^^^^^^^^^
+Denotes the set of the labels of the leafnodes reachable from v'.
+Further, given the leafnode :math:`labels p = \{\alpha_1, \alpha_2,...,\alpha_n\}`,
+the least common ancestor (**LCA**) of p is that variant v' of a node v satisfying the following:
+
+1. :math:`p \subseteq L(v')`
+2. There exists no variant v" of v or any other node such that :math:`p \subseteq L(v")` and :math:`|L(v")| < |L(v')|`
