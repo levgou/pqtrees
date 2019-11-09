@@ -29,3 +29,7 @@
 
 .. |pi_1-pi_n| replace:: :math:`\Pi = \{ \pi_1, \pi_2, ... pi_n \}`
 .. |1-n| replace:: :math:`N = \{ 1, 2, ... , n \}`
+
+.. |On| replace:: :math:`O(n)`
+.. |On2| replace:: :math:`O(n^2)`
+

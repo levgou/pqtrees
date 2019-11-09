@@ -79,3 +79,39 @@ Algorithm 1 (Reduce Candidate, RC)
             output.add([l(x, y), u(x, y)])
 
 
+Algorithm 2 (Update of data structure Y - Algorithm 1)
+------------------------------------------------------------
+
+* Only treats the case where :math:`\pi_2(x) > \pi_2(x+1)`, the other case is symmetric
+
+: prepend x at the head of ylist
+2: prepend [x, x] at the head of llist
+3: while (u∗ ← ulist.head) has a successor u and val(u) < π2(x) do
+4: delete u∗ from ulist and the corresponding elements from ylist
+5: end while
+6: y∗ ← end(u∗)
+7: if (˜y ← ylist.succ(y∗)) is defined then
+8: while f(x, y∗) > f(x, y˜) do
+9: delete y∗ from ylist
+10: y∗ ← ylist.pred(˜y)
+11: end while
+12: end if
+13: update the left and right end of u∗ ← [x, y∗]
+
+.. code-block:: python3
+
+    def alg2(ylist, ulist, llist, pi2, x, f):
+        ylist.prepend(x)
+        llist.prepend([x, x])
+
+        while u_star := ulist.popleft():
+            if ylist.succ(u_star) and u_star < pi2[x]:
+                ulist.remove(u_star)
+                ylist.remove(u_star[0])
+                ylist.remove(u_star[1])
+
+        y_star = u_star[1]
+        if y_tilde := ylist.succ(y_star):
+            while f(x, y_star) > f(x, y_tilde):
+                ylist.remove(y_star)
+                y_star = ylist.pred(y_tilde)
