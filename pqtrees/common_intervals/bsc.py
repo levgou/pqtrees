@@ -60,6 +60,9 @@ class CommonInterval:
         return f'{self.intervals}'
 
 
+    __repr__ = __str__
+
+
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, CommonInterval):
             return False
@@ -68,21 +71,6 @@ class CommonInterval:
 
     def __hash__(self) -> int:
         return hash(self.intervals)
-
-
-"""
-
-Algorithm BSC
-Line 1: for x = 1; . . . ; n  1 do
-Line 2: l:=u:=AB(x);
-Line 3: for y = x + 1; . . . ; n do
-Line 4: l:=minfl; AB(y)g;
-Line 5: u:=maxfu; AB(y)g;
-Line 6: if u  l  (y  x) = 0 then
-Line 7: output ([x, y], [l, u])
-Line 8: end for
-Line 9: end
-"""
 
 
 def bsc(perm_a: Sequence, perm_b: Sequence) -> List[CommonInterval]:
@@ -108,43 +96,3 @@ def bsc(perm_a: Sequence, perm_b: Sequence) -> List[CommonInterval]:
                 output.append(CommonInterval((x, y), (l, u)))
 
     return output
-
-
-if __name__ == '__main__':
-    pi1 = (0, 1, 2, 3, 4, 5, 6, 7, 8)
-    pi2 = (8, 7, 3, 4, 5, 6, 0, 1, 2)
-
-    commons = [
-        # len 2
-        CommonInterval((0, 1), (6, 7)),
-        CommonInterval((1, 2), (7, 8)),
-        CommonInterval((3, 4), (2, 3)),
-        CommonInterval((4, 5), (3, 4)),
-        CommonInterval((5, 6), (4, 5)),
-        CommonInterval((7, 8), (0, 1)),
-
-        # len 3
-        CommonInterval((0, 2), (6, 8)),
-        CommonInterval((3, 5), (2, 4)),
-        CommonInterval((4, 6), (3, 5)),
-
-        # len 4
-        CommonInterval((3, 6), (2, 5)),
-
-        # len 4
-        CommonInterval((3, 7), (1, 5)),
-        # len 6
-        CommonInterval((3, 8), (0, 5)),
-
-        # len 7
-        CommonInterval((0, 6), (2, 8)),
-
-        # len 8
-        CommonInterval((0, 7), (1, 8)),
-
-        # len 9
-        CommonInterval((0, 8), (0, 8)),
-    ]
-
-    found_commons = bsc(pi1, pi2)
-    assert set(found_commons) == set(commons)

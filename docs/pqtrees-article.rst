@@ -57,7 +57,7 @@ if one can be obtained from the other by applying a sequence of the following tr
 1. arbitrarily permute the children of a P-node
 2. reverse the children of a Q-node.
 
-.. image:: ./images/figure1.png
+.. image:: ./_static/images/figure1.png
 
 |C_T|
 ^^^^^^
@@ -110,7 +110,7 @@ the elements of the set :math:`\{i, i+1,...,j \}` appear as a consecutive substr
 in every :math:`\pi_i \in \Pi (i = 1, 2,... , k)`. The set of all common intervals of
 |pi_| is denoted |C_Pi|.
 
-.. image:: ./images/figure3.png
+.. image:: ./_static/images/figure3.png
 
 |T_U|
 ----------
