@@ -15,7 +15,7 @@
 .. |L_v| replace:: :math:`L(v')`
 .. |pi_i| replace:: :math:`\pi_i`
 .. |pi_x_y| replace:: :math:`\pi[x,y]`
-.. |Pi_AB| replace:: :math:`\Pi_AB`
+.. |Pi_AB| replace:: :math:`\Pi_{AB}`
 .. |Pi_AB_i| replace:: :math:`\Pi_AB(i)`
 .. |f_x_y| replace:: :math:`f(x, y)`
 

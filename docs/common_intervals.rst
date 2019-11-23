@@ -17,16 +17,16 @@ The permutations we try to find common intervals for
 |Pi_AB|
 --------------
 
-* :math:`\Pi_AB(i) = \sigma_B^{-1}(\sigma_A(i))`
-    * Meaning - :math:`\Pi_AB(i) = j` the :math:`ith` element of |A| shows up at index |j| in |B|
+* :math:`\Pi_{AB}(i) = \sigma_B^{-1}(\sigma_A(i))`
+    * Meaning - :math:`\Pi_{AB}(i) = j` the :math:`ith` element of |A| shows up at index |j| in |B|
 
 Functions used in common intervals for |sigA| and |sigB|
 -----------------------------------------------------------------------------
 
-* :math:`l(x, y) = min(\Pi_AB(i) : i \in [x, y])`
+* :math:`l(x, y) = min(\Pi_{AB}(i) : i \in [x, y])`
     * The minimal / most left index of the the items in B that are at A at indices [x, y]
 
-* :math:`u(x, y) = max(\Pi_AB(i) : i \in [x, y])`
+* :math:`u(x, y) = max(\Pi_{AB}(i) : i \in [x, y])`
     * The maximal / most right index of the the items in B that are at A at indices [x, y]
 
 * :math:`f(x, y) = u(x, y) - l(x, y) - (y - x)`
@@ -65,3 +65,34 @@ Identifying wasteful |y|
 1. **LHP** -  simple |On2| time algorithm, whose expected running time becomes: |On| for two randomly generated permutations
 2. **MNG** - A practically fast |On2| time algorithm using the reverse Monge property
 3. **RC** - an :math:`O(n + K)` time algorithm, where :math:`K \leq \binom{n}{2}` is the number of common interval
+
+
+RC
+===========
+
+Lists (Y) - computed for each |x|
+----------------------------------
+
+ylist
+************
+* Initialized with indices 1..N
+* For each iteration of |x| we remove from ylist (and ulist/llist) wasteful |y| values
+* each node of ylist is linked to ulist/llist at relevant values - :math:`u(x, y') ; l(x,y')`
+
+
+ulist / llist
+*****************
+
+* For a fixed |x| - ulist(|x|, y) - is composed of segments:
+
+  * Each segment is of the structure :math:`[u_{val}; y_{start} - y_{end}]`,
+    where :math:`y_{start}/y_{end}` is the index range for which
+    :math:`u(x,y') = u_{val} : y' \in [y_{start},y_{end}]`
+
+  * Each segment is linked to ylist at :math:`y_{end}(segment)`
+
+.. image:: ./_static/images/common_intervals_figure2.png
+
+
+Updating upon :math:`x \rightarrow x-1`
+******************************************
