@@ -4,6 +4,13 @@ from itertools import tee
 
 from pqtrees.common_intervals.proj_types import F_X_Y, Index, U_L_Func
 
+"""
+sig_a = [1, 2, 3, 4, 5, 6, 7]
+sig_b = [5, 3, 1, 4, 2, 7, 6]
+
+
+"""
+
 
 def pairwise(iterable) -> Iterable[tuple]:
     """s -> (s0,s1), (s1,s2), (s2, s3), ..."""
@@ -33,7 +40,6 @@ def trim_ylist(x: Index, y_list: deque, n: int, u_func: U_L_Func):
 
     while len(y_list) >= 2:
         for y_i, y_i_1 in pairwise(y_list):
-
 
 
 def rc(n: int, f: F_X_Y):

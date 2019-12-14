@@ -52,7 +52,7 @@ Identifying wasteful |y|
 
   * :math:`u(x,y) < u(x, y')`
   * but :math:`u(x-1,y) = u(x-1, y')`  for some  :math:`y' > y`
-  * Then :math:`f(x' y) > 0 for all x'< x`
+  * Then :math:`f(x' y) > 0 : x'< x`
 
 2. For some :math:`x>1 y>x` - **If**
 
