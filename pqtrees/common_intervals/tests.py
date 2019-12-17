@@ -1,10 +1,53 @@
 from pqtrees.common_intervals.bsc import CommonInterval, bsc
 from pqtrees.common_intervals.lhp import lhp
+from pqtrees.common_intervals.reduce_candidate import rc
 
 
-def test_common_intervals(alg):
-    pi1 = (0, 1, 2, 3, 4, 5, 6, 7, 8)
-    pi2 = (8, 7, 3, 4, 5, 6, 0, 1, 2)
+def test_results(sig1, sig2, commons, alg):
+    found_commons = alg(sig1, sig2)
+    common_set = set(commons)
+    found_common_set = set(found_commons)
+    assert found_common_set == common_set, f'\nFor alg [{alg.__name__}]\n' \
+                                           f'Only in found: {found_common_set - common_set}, ' \
+                                           f'only in common: {common_set - found_common_set}'
+
+
+def test_common_intervals_len_4(alg):
+    sig1 = (0, 1, 2, 3)
+    sig2 = (3, 0, 2, 1)
+
+    commons = [
+        # len 2
+        CommonInterval((1, 2), (2, 3)),
+
+        # len 3
+        CommonInterval((0, 2), (1, 3)),
+
+        # len 4
+        CommonInterval((0, 3), (0, 3)),
+    ]
+
+    test_results(sig1, sig2, commons, alg)
+
+
+def test_common_intervals_len_5(alg):
+    sig1 = (0, 1, 2, 3, 4)
+    sig2 = (4, 3, 0, 2, 1)
+
+    commons = [
+        # len 2
+        CommonInterval((1, 2), (2, 3)),
+        CommonInterval((3, 4), (0, 1)),
+
+        # len 4
+        CommonInterval((0, 3), (0, 3)),
+    ]
+
+
+
+def test_common_intervals_len_9(alg):
+    sig1 = (0, 1, 2, 3, 4, 5, 6, 7, 8)
+    sig2 = (8, 7, 3, 4, 5, 6, 0, 1, 2)
 
     commons = [
         # len 2
@@ -38,7 +81,7 @@ def test_common_intervals(alg):
         CommonInterval((0, 8), (0, 8)),
     ]
 
-    found_commons = alg(pi1, pi2)
+    found_commons = alg(sig1, sig2)
     common_set = set(commons)
     found_common_set = set(found_commons)
     assert found_common_set == common_set, f'\nFor alg [{alg.__name__}]\n' \
@@ -46,6 +89,12 @@ def test_common_intervals(alg):
                                            f'only in common: {common_set - found_common_set}'
 
 
+def test_common_intervals(alg):
+    # test_common_intervals_len_9(alg)
+    test_common_intervals_len_4(alg)
+
+
 if __name__ == '__main__':
     test_common_intervals(bsc)
     test_common_intervals(lhp)
+    test_common_intervals(rc)

@@ -3,13 +3,13 @@ import networkx as nx
 
 from dataclasses import dataclass
 from itertools import chain
-from typing import Optional, Union, Iterable
+from typing import Optional, Union, Iterable, Callable
 from copy import deepcopy
 from unittest import TestCase
 from random import shuffle
 from networkx import DiGraph
 
-from funcy import compose, complement
+from funcy import compose, complement, takewhile
 
 from pqtrees.common_intervals.proj_types import SigmaFunc, SigmaInvFunc, PiFunc, Index
 
@@ -76,6 +76,7 @@ class LNode:
 
 
 YUL = Union[YNode, UNode, LNode]
+NodePredicate = Callable[[YUL], bool]
 
 
 class YLists:
@@ -83,10 +84,13 @@ class YLists:
     llist: LNode
     ylist: YNode
     pi_ab: PiFunc
+    x: int
 
 
     def __init__(self, sig_a: SigmaFunc, sig_b_inv: SigmaInvFunc, n: int) -> None:
         super().__init__()
+
+        self.x = n - 1
 
         self.pi_ab = compose(sig_b_inv, sig_a)
         pi_ab_last = self.pi_ab(n - 1)
@@ -99,28 +103,56 @@ class YLists:
         self.ylist.u_node = self.ulist
 
 
-    def update_for_x(self, x: int) -> 'YLists':
+    def ys_fxy_zero(self, x: Index) -> list:
+        self.display_plot()
+
+        def fxy_zero(y_node: YNode):
+            return (y_node.u_node.val - y_node.l_node.val) - (y_node.val - x) == 0
+
+        y_nodes = takewhile(fxy_zero, self._iter_list(self.ylist))
+        y_vals = [n.val for n in y_nodes]
+        return y_vals
+
+
+    def decrease_x(self) -> 'YLists':
 
         # in order to save memory after testing should reuse current ylists
         new_lists = deepcopy(self)
-        self._add_y_node(new_lists, x)
-        self._add_l_node(new_lists, x)
-        self._rem_u_nodes(new_lists, x)
+        new_lists.x -= 1
+
+        self._add_y_node(new_lists, new_lists.x)
+        self._update_l_node(new_lists, new_lists.x)
+        self._update_u_nodes(new_lists, new_lists.x)
 
         return new_lists
 
 
     @classmethod
-    def _find_y_star_node(cls, ylists: 'YLists', pi_x: Index) -> UNode:
+    def _find_y_star_node_u(cls, ylists: 'YLists', pi_x: Index) -> UNode:
 
         def u_x_greater_than_u_x_1(u_node: UNode):
             return pi_x > u_node.val
 
 
-        y_star_node = ylists.ulist
-        for u_node in cls._iter_list(ylists.ulist):
-            if u_x_greater_than_u_x_1(u_node):
-                y_star_node = u_node
+        return cls._find_y_star_node(u_x_greater_than_u_x_1, ylists.ulist)
+
+
+    @classmethod
+    def _find_y_star_node_l(cls, ylists: 'YLists', pi_x: Index) -> LNode:
+
+        def l_x_lesser_than_l_x_1(l_node: LNode):  # todo func name?
+            return pi_x < l_node.val
+
+
+        return cls._find_y_star_node(l_x_lesser_than_l_x_1, ylists.llist)
+
+
+    @classmethod
+    def _find_y_star_node(cls, pred: NodePredicate, lst: YUL) -> YUL:
+        y_star_node = lst
+        for node in cls._iter_list(lst):
+            if pred(node):
+                y_star_node = node
             else:
                 break
 
@@ -128,7 +160,9 @@ class YLists:
 
 
     @classmethod
-    def _rem_u_y_nodes(cls, ylists: 'YLists', y_star_node: UNode) -> None:
+    def _rem_l_u_y_nodes(cls, ylists: 'YLists', y_star_node: YUL, lst_name: str) -> None:
+
+        print('%' * 10, lst_name, y_star_node.val)
 
         first_y_node_rm = y_star_node.prev.max_y
         first_y_node_keep = first_y_node_rm.next
@@ -136,48 +170,58 @@ class YLists:
         first_y_node_keep.prev = ylists.ylist
         ylists.ylist.next = first_y_node_keep
 
-        ylists.ylist = y_star_node
+        if lst_name == 'u':
+            ylists.ulist = y_star_node
+        elif lst_name == 'l':
+            ylists.llist = y_star_node
+
         y_star_node.prev = None
 
 
     @classmethod
-    def _rem_u_nodes(cls, ylists: 'YLists', x: Index) -> None:
+    def _update_u_nodes(cls, ylists: 'YLists', x: Index) -> None:
         pi_x = ylists.pi_ab(x)
         pi_x_1 = ylists.pi_ab(x + 1)
 
         if pi_x <= pi_x_1:
-            ylists.ulist.y_range = range(pi_x, ylists.ulist.y_range.stop)
+            ylists.ulist = UNode(pi_x, range(x, x + 1), max_y=ylists.ylist, next=ylists.ulist)
+            ylists.ulist.next.prev = ylists.ulist
             ylists.ylist.u_node = ylists.ulist
             return
 
-        y_star_node = cls._find_y_star_node(ylists, pi_x)
+        y_star_node = cls._find_y_star_node_u(ylists, pi_x)
 
         if y_star_node.prev:
-            cls._rem_u_y_nodes(ylists, y_star_node)
+            cls._rem_l_u_y_nodes(ylists, y_star_node, 'u')
 
         y_star_node.y_range = range(x, y_star_node.y_range.stop)
         y_star_node.val = pi_x
         ylists.ylist.u_node = y_star_node
 
 
-    @staticmethod
-    def _add_l_node(ylists: 'YLists', x: int) -> None:
+    @classmethod
+    def _update_l_node(cls, ylists: 'YLists', x: int) -> None:
         pi_x = ylists.pi_ab(x)
         pi_x_1 = ylists.pi_ab(x + 1)
 
         if pi_x > pi_x_1:
             ylists.llist = LNode(pi_x, range(x, x + 1), max_y=ylists.ylist, next=ylists.llist)
             ylists.llist.next.prev = ylists.llist
+            ylists.ylist.l_node = ylists.llist
+            return
 
-        else:
-            ylists.llist.y_range = range(x, ylists.llist.y_range.stop)
-            ylists.llist.val = pi_x
+        y_star_node = cls._find_y_star_node_l(ylists, pi_x)
 
-        ylists.ylist.l_node = ylists.llist
+        if y_star_node.prev:
+            cls._rem_l_u_y_nodes(ylists, y_star_node, 'l')
+
+        y_star_node.y_range = range(x, y_star_node.y_range.stop)
+        y_star_node.val = pi_x
+        ylists.ylist.l_node = y_star_node
 
 
     @staticmethod
-    def _add_y_node(ylists: 'YLists', x: int) -> None:
+    def _add_y_node(ylists: 'YLists', x: Index) -> None:
         ylists.ylist = YNode(x, next=ylists.ylist)
         ylists.ylist.next.prev = ylists.ylist
 
@@ -225,7 +269,8 @@ class YLists:
         return g
 
 
-    def _gen_node_positions(self, g: DiGraph) -> dict:
+    @staticmethod
+    def _gen_node_positions(g: DiGraph) -> dict:
         STEP_SIZE = 50
         Y_POS = 100
         L_POS = 200
@@ -237,6 +282,7 @@ class YLists:
         l_count = 50
         u_count = 50
 
+
         def sort_key(node):
             if node[0] == 'Y':
                 return int(node.split('[')[-1].split(']')[0])
@@ -246,6 +292,7 @@ class YLists:
                 return int(node.split('[')[2].split(',')[0]) * 1000
             else:
                 return 0
+
 
         for node in filter(complement(r'ylists'), sorted(g.nodes, key=sort_key)):
             if node[0] == 'Y':
@@ -258,13 +305,15 @@ class YLists:
                 positions[node] = (u_count, U_POS)
                 u_count += STEP_SIZE
 
-        return  positions
+        return positions
+
 
     def display_plot(self) -> None:
         NODE_SIZE = 5000
         FIG_EDGE_SIZE = 8
 
         g = self.gen_graph()
+
 
         def color_chooser(node_name):
             return {
@@ -316,10 +365,15 @@ class YListsTests(TestCase):
 
 
     def test_02_update_x_pi_x_smaller_pi_x_1(self):
-        after_one = self.ylists.update_for_x(5)
+        after_one = self.ylists.decrease_x()
 
         self.assertEqual(5, after_one.ylist.val)
+        self.assertEqual(6, after_one.ylist.l_node.val)
+        self.assertEqual(6, after_one.ylist.u_node.val)
+
         self.assertEqual(6, after_one.ylist.next.val)
+        self.assertEqual(0, after_one.ylist.next.l_node.val)
+        self.assertEqual(6, after_one.ylist.next.u_node.val)
         self.assertEqual(2, len(after_one.ylist))
 
         self.assertEqual(6, after_one.llist.val)
@@ -332,6 +386,28 @@ class YListsTests(TestCase):
         self.assertEqual(range(5, 7), after_one.ulist.y_range)
 
 
+    def test_03_update_x_pi_x_larger_pix_x1(self):
+        after_two = self.ylists.decrease_x().decrease_x()
+
+        self.assertEqual(4, after_two.ylist.val)
+        self.assertEqual(4, after_two.ylist.l_node.val)
+        self.assertEqual(4, after_two.ylist.u_node.val)
+
+        self.assertEqual(5, after_two.ylist.next.val)
+        self.assertEqual(4, after_two.ylist.next.l_node.val)
+        self.assertEqual(6, after_two.ylist.next.u_node.val)
+        self.assertEqual(3, len(after_two.ylist))
+
+        self.assertEqual(4, after_two.llist.val)
+        self.assertEqual(0, after_two.llist.next.val)
+        self.assertEqual(2, len(after_two.llist))
+        self.assertEqual(range(4, 6), after_two.llist.y_range)
+
+        self.assertEqual(4, after_two.ulist.val)
+        self.assertEqual(6, after_two.ulist.next.val)
+        self.assertEqual(range(4, 5), after_two.ulist.y_range)
+
+
 if __name__ == '__main__':
     a = [1, 2, 3, 4, 5, 6, 7]
     b = [7, 3, 1, 4, 5, 2, 6]
@@ -342,7 +418,24 @@ if __name__ == '__main__':
     ylists.pretty_print()
 
     print("#" * 120)
-    after_one = ylists.update_for_x(5)
+    after_one = ylists.decrease_x()
     after_one.pretty_print()
+    # after_one.display_plot()
 
-    after_one.display_plot()
+    print("#" * 120)
+    after_two = after_one.decrease_x()
+    after_two.pretty_print()
+    after_two.display_plot()
+
+    after_three = after_two.decrease_x()
+    after_four = after_three.decrease_x()
+
+    after_four.display_plot()
+    print(1)
+    after_five = after_four.decrease_x()
+    print(1)
+    after_five.display_plot()
+
+    after_six = after_five.decrease_x()
+
+    # after_six.display_plot()
