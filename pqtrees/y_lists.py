@@ -3,7 +3,7 @@ import networkx as nx
 
 from dataclasses import dataclass
 from itertools import chain
-from typing import Optional, Union, Iterable, Callable
+from typing import Optional, Union, Iterable, Callable, List
 from copy import deepcopy
 from unittest import TestCase
 from random import shuffle
@@ -11,7 +11,7 @@ from networkx import DiGraph
 
 from funcy import compose, complement, takewhile
 
-from pqtrees.common_intervals.proj_types import SigmaFunc, SigmaInvFunc, PiFunc, Index
+from pqtrees.common_intervals.proj_types import SigmaFunc, SigmaInvFunc, PiFunc, Index, Val
 
 
 def l_u_str(l_u_node) -> str:
@@ -75,8 +75,15 @@ class LNode:
     def __len__(self) -> int: return l_len(self)
 
 
-YUL = Union[YNode, UNode, LNode]
-NodePredicate = Callable[[YUL], bool]
+YULNode = Union[YNode, UNode, LNode]
+NodePredicate = Callable[[YULNode], bool]
+
+
+@dataclass
+class YUL:
+    y: Index
+    u: Index
+    l: Index
 
 
 class YLists:
@@ -103,14 +110,24 @@ class YLists:
         self.ylist.u_node = self.ulist
 
 
-    def ys_fxy_zero(self, x: Index) -> list:
-        self.display_plot()
+    @staticmethod
+    def fxy(y_node: YNode, x: Index) -> Val:
+        return (y_node.u_node.val - y_node.l_node.val) - (y_node.val - x)
+
+
+    def yuls_fxy_zero(self, x: Index) -> List[YUL]:
+        # self.display_plot()
 
         def fxy_zero(y_node: YNode):
-            return (y_node.u_node.val - y_node.l_node.val) - (y_node.val - x) == 0
+            return self.fxy(y_node, x) == 0
+
+
+        def gen_yul(y_node: YNode):
+            return YUL(y_node.val, y_node.u_node.val, y_node.l_node.val)
+
 
         y_nodes = takewhile(fxy_zero, self._iter_list(self.ylist))
-        y_vals = [n.val for n in y_nodes]
+        y_vals = [gen_yul(y_node) for y_node in y_nodes]
         return y_vals
 
 
@@ -123,8 +140,25 @@ class YLists:
         self._add_y_node(new_lists, new_lists.x)
         self._update_l_node(new_lists, new_lists.x)
         self._update_u_nodes(new_lists, new_lists.x)
+        self._del_irrelevant_y_nodes(new_lists, new_lists.x)
 
         return new_lists
+
+
+    @classmethod
+    def _del_irrelevant_y_nodes(cls, ylists: 'YLists', x: Index) -> None:
+        y_star = ylists.ulist.max_y
+        if y_wave := y_star.next:
+            while cls.fxy(y_star, x) > cls.fxy(y_wave, x):
+                y_star = y_star.prev
+                if not y_star:
+                    break
+
+            if not y_star:
+                ylists.ylist = y_wave
+            else:
+                y_star.next = y_wave
+                y_wave.prev = y_star
 
 
     @classmethod
@@ -148,7 +182,7 @@ class YLists:
 
 
     @classmethod
-    def _find_y_star_node(cls, pred: NodePredicate, lst: YUL) -> YUL:
+    def _find_y_star_node(cls, pred: NodePredicate, lst: YULNode) -> YULNode:
         y_star_node = lst
         for node in cls._iter_list(lst):
             if pred(node):
@@ -160,9 +194,7 @@ class YLists:
 
 
     @classmethod
-    def _rem_l_u_y_nodes(cls, ylists: 'YLists', y_star_node: YUL, lst_name: str) -> None:
-
-        print('%' * 10, lst_name, y_star_node.val)
+    def _rem_l_u_y_nodes(cls, ylists: 'YLists', y_star_node: YULNode, lst_name: str) -> None:
 
         first_y_node_rm = y_star_node.prev.max_y
         first_y_node_keep = first_y_node_rm.next
@@ -192,6 +224,7 @@ class YLists:
         y_star_node = cls._find_y_star_node_u(ylists, pi_x)
 
         if y_star_node.prev:
+            # print("REM U")
             cls._rem_l_u_y_nodes(ylists, y_star_node, 'u')
 
         y_star_node.y_range = range(x, y_star_node.y_range.stop)
@@ -213,6 +246,7 @@ class YLists:
         y_star_node = cls._find_y_star_node_l(ylists, pi_x)
 
         if y_star_node.prev:
+            # print("REM L")
             cls._rem_l_u_y_nodes(ylists, y_star_node, 'l')
 
         y_star_node.y_range = range(x, y_star_node.y_range.stop)
@@ -227,7 +261,7 @@ class YLists:
 
 
     @staticmethod
-    def _iter_list(l: YUL) -> Iterable[YUL]:
+    def _iter_list(l: YULNode) -> Iterable[YULNode]:
         cur = l
         while cur:
             yield cur

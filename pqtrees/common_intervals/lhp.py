@@ -1,10 +1,11 @@
 from typing import List
 
-from pqtrees.common_intervals.bsc import CommonInterval, Interval
+from pqtrees.common_intervals.bsc import IntervalAndFuncs
+from pqtrees.common_intervals.common_interval import CommonInterval
 from pqtrees.common_intervals.proj_types import Index, IntSeq
 
 
-def can_break_inner_loop(u: Index, l: Index, n: int, x: Index, interval: Interval) -> bool:
+def can_break_inner_loop(u: Index, l: Index, n: int, x: Index, interval: IntervalAndFuncs) -> bool:
     if u - l > min(n - x, n - 3):
         return True
 
@@ -43,7 +44,7 @@ def lhp(perm_a: IntSeq, perm_b: IntSeq) -> List[CommonInterval]:
 
     n = len(perm_a)
     output = []
-    interval = Interval(
+    interval = IntervalAndFuncs(
         sig_a=perm_a.__getitem__,
         sig_a_inv=lambda v: perm_a.index(v),
         sig_b=perm_b.__getitem__,

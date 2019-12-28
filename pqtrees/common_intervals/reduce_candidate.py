@@ -1,10 +1,7 @@
-from collections import Set, deque, Iterable
-from functools import partial
-from itertools import tee
 from typing import Sequence, List
 
-from pqtrees.common_intervals.bsc import CommonInterval
-from pqtrees.common_intervals.proj_types import F_X_Y, Index, U_L_Func, SigmaInvFunc, SigmaFunc
+from pqtrees.common_intervals.common_interval import CommonInterval
+from pqtrees.common_intervals.proj_types import SigmaInvFunc, SigmaFunc
 from pqtrees.y_lists import YLists
 
 """
@@ -45,21 +42,28 @@ sig_b = [5, 3, 1, 4, 2, 7, 6]
 #         for y_i, y_i_1 in pairwise(y_list):
 
 
-def rc(a: Sequence, b: Sequence):
+def rc(a: Sequence, b: Sequence) -> List[CommonInterval]:
     n: int = len(a)
     sig_a: SigmaFunc = a.__getitem__
     b_inv_index = dict(zip(b, range(len(b))))
     sig_b_inv: SigmaInvFunc = b_inv_index.__getitem__
 
-
     output: List[CommonInterval] = []
     Y = YLists(sig_a, sig_b_inv, n)
 
-    def common_a_to_b(a_tuple): return Y.pi_ab(a_tuple[0]), Y.pi_ab(a_tuple[1])
+    # we are not interested in the simple case where x = y, and the're both the end index
+    Y = Y.decrease_x()
 
     for x in reversed(range(n - 1)):
-        commons_in_sig_a = [(x, y) for y in Y.ys_fxy_zero(x)]
-        output.extend([CommonInterval(xy, common_a_to_b(xy)) for xy in commons_in_sig_a])
+        yul_fxy_zero = [yul for yul in Y.yuls_fxy_zero(x)]
+        common_in_both = [((x, yul.y), (yul.l, yul.u)) for yul in yul_fxy_zero]
+        common_intervals = [CommonInterval(a_cmn, b_cmn) for a_cmn, b_cmn in common_in_both]
+        output.extend(common_intervals)
         Y = Y.decrease_x()
 
-    return output
+    output_no_singletons = list(filter(lambda ci: len(ci) > 1, output))
+
+    if CommonInterval((0, len(a) - 1), (0, len(a) - 1)) not in output_no_singletons:
+        output_no_singletons.append(CommonInterval((0, len(a) - 1), (0, len(a) - 1)))
+
+    return output_no_singletons
