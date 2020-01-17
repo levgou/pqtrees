@@ -3,3 +3,4 @@ pygments>=2.4.2
 funcy>=1.14
 networkx>=2.4
 matplotlib>=3.1.1
+pygraphviz>=1.5

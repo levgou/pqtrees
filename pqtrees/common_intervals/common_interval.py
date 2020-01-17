@@ -15,14 +15,23 @@ class CommonInterval:
         self.first_start = self.intervals[0][0]
         self.first_end = self.intervals[0][1]
 
+    def is_trivial(self) -> bool:
+        return self.first_end == self.first_start
+
+    def included_in_other(self, other: 'CommonInterval') -> bool:
+        return self._left_included_in_right(self, other)
+
+    @classmethod
+    def _left_included_in_right(cls, left: 'CommonInterval', right: 'CommonInterval') -> bool:
+        return left.first_end <= right.first_end and left.first_start >= right.first_start
+
     @classmethod
     def one_interval_includes_other(cls, ci1: 'CommonInterval', ci2: 'CommonInterval') -> bool:
-        return ci1.first_end >= ci2.first_end and ci1.first_start <= ci2.first_start or \
-               ci2.first_end >= ci1.first_end and ci2.first_start <= ci1.first_start
+        return cls._left_included_in_right(ci1, ci2) or cls._left_included_in_right(ci2, ci1)
 
     @classmethod
     def intervals_intersect(cls, ci1: 'CommonInterval', ci2: 'CommonInterval'):
-        return (ci1.first_end >= ci2.first_start and ci1.first_start <= ci2.first_end) or\
+        return (ci1.first_end >= ci2.first_start and ci1.first_start <= ci2.first_end) or \
                (ci1.first_start <= ci2.first_end and ci1.first_end >= ci2.first_start)
 
     @classmethod
@@ -43,7 +52,8 @@ class CommonInterval:
         assert len(lens) == 1, f"All intervals should be of same len {intervals}"
 
     def __str__(self) -> str:
-        return f'CI{list(self.intervals)}'
+        return f'CI{list(self.intervals[0])}'
+        # return f'CI{list(self.intervals)}'
 
     __repr__ = __str__
 
