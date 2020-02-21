@@ -68,6 +68,12 @@ class CommonInterval:
     def __len__(self) -> int:
         return self.intervals[1][1] - self.intervals[1][0] + 1
 
+    def __contains__(self, other: 'CommonInterval'):
+        return self._left_included_in_right(other, self)
+
+    def to_tuple(self):
+        return self.first_start, self.first_end
+
 
 class CommonIntervalWeakEq(CommonInterval):
 

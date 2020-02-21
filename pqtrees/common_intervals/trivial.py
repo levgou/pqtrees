@@ -55,15 +55,25 @@ def find_in_others(chars1: set, others: Sequence[Sequence]) -> Optional[List[Int
     return in_others
 
 
+def common_k(perm_id: Sequence, perms: Sequence[Sequence], k: int):
+    for w1 in window(perm_id, k):
+        chars1 = set(w1)
+        if in_others := find_in_others(chars1, perms[1:]):
+            yield CommonInterval((w1[0], w1[-1]), *in_others)
+
+
 def trivial_common_k(*perms: Sequence) -> List[CommonInterval]:
     commons = []
     perm_id = perms[0]
 
     for l in range(2, len(perm_id) + 1):
-        for w1 in window(perm_id, l):
-            chars1 = set(w1)
+        commons.extend(common_k(perm_id, perms, l))
 
-            if in_others := find_in_others(chars1, perms[1:]):
-                commons.append(CommonInterval((w1[0], w1[-1]), *in_others))
+    return commons
+
+
+def trivial_common_k_with_singletons(*perms: Sequence) -> List[CommonInterval]:
+    commons = list(common_k(perms[0], perms, 1))
+    commons.extend(trivial_common_k(*perms))
 
     return commons

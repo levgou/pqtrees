@@ -89,7 +89,7 @@ def add_indeces(output: Set[CommonInterval], commons: Set[CommonInterval]) -> Se
 
 
 def bsc_k(*perms: Sequence) -> List[CommonInterval]:
-    assert len({len(p) for p in perms}) == 1
+    assert len({len(p) for p in perms}) == 1, perms
 
     perm_a = perms[0]
     perm_b = perms[1]
