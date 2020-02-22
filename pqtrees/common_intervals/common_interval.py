@@ -7,6 +7,7 @@ class CommonInterval:
     intervals: Tuple[Tuple[Index, Index], ...]
     first_start: Index
     first_end: Index
+    _alt_sign: object
 
     def __init__(self, *args: Tuple[Index, Index]) -> None:
         super().__init__()
@@ -14,6 +15,15 @@ class CommonInterval:
         self.intervals = tuple(args)
         self.first_start = self.intervals[0][0]
         self.first_end = self.intervals[0][1]
+        self._alt_sign = None
+
+    @property
+    def sign(self):
+        return str(self._alt_sign) if self._alt_sign else str(self.first_start)
+
+    @sign.setter
+    def sign(self, new_sign):
+        self._alt_sign = new_sign
 
     def is_trivial(self) -> bool:
         return self.first_end == self.first_start
@@ -52,7 +62,7 @@ class CommonInterval:
         assert len(lens) == 1, f"All intervals should be of same len {intervals}"
 
     def __str__(self) -> str:
-        return f'CI{list(self.intervals[0])}'
+        return f'CI{list(self.intervals[0])}' if self._alt_sign is None else self.sign
         # return f'CI{list(self.intervals)}'
 
     __repr__ = __str__

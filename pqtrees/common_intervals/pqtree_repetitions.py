@@ -5,7 +5,7 @@ from random import shuffle
 
 from funcy import lmap
 
-from pqtrees.common_intervals.pqtree import PQTreeBuilder
+from pqtrees.common_intervals.pqtree import PQTreeBuilder, PQTreeVisualizer
 from pqtrees.iterator_product import IterProduct
 
 
@@ -38,11 +38,11 @@ class PQTreeDup:
         the first perm is translated to (0, 1, 2)
         translation: {1: [0,1], 2: [2]}
 
-        yield:
+        yield w.l.o.g:
         a) 0 1 2 ; 0 2 1
         b) 0 1 2 ; 1 2 0
-        c) 1 0 2 ; 0 2 1
-        d) 1 0 2 ; 1 2 0
+
+        Note: as seen in the example - perms[0] is static - to avoid isomorphic results
         """
 
         p1 = perms[0]
@@ -52,8 +52,8 @@ class PQTreeDup:
         for i, val in enumerate(p1):
             translations[val].append(norm_p1[i])
 
-        iters = lmap(lambda p: cls.perm_variations(p, translations), perms)
-        for perm_set in IterProduct.iproduct(*iters):
+        iters = lmap(lambda p: cls.perm_variations(p, translations), perms[1:])
+        for perm_set in IterProduct.iproduct([tuple(norm_p1)], *iters):
             yield perm_set
 
     @classmethod
@@ -123,14 +123,12 @@ def test_perm_space():
     ps2 = set(PQTreeDup.traverse_perm_space(perms2))
     ps3 = set(PQTreeDup.traverse_perm_space(perms3))
 
-    assert len(ps1) == 4
-    assert len(ps2) == 16
-    assert len(ps3) == (2 * 2 * 2) ** 4
+    assert len(ps1) == 2
+    assert len(ps2) == 4
+    assert len(ps3) == (2 * 2 * 2) ** 3
 
     assert ps1 == {
         ((0, 1, 2), (1, 2, 0)),
-        ((1, 0, 2), (1, 2, 0)),
-        ((1, 0, 2), (0, 2, 1)),
         ((0, 1, 2), (0, 2, 1))
     }
 
@@ -139,25 +137,16 @@ def test_perm_space():
         ((0, 1, 2, 3, 4), (0, 4, 3, 1, 2)),
         ((0, 1, 2, 3, 4), (3, 1, 0, 4, 2)),
         ((0, 1, 2, 3, 4), (3, 4, 0, 1, 2)),
-        ((0, 4, 2, 3, 1), (0, 1, 3, 4, 2)),
-        ((0, 4, 2, 3, 1), (0, 4, 3, 1, 2)),
-        ((0, 4, 2, 3, 1), (3, 1, 0, 4, 2)),
-        ((0, 4, 2, 3, 1), (3, 4, 0, 1, 2)),
-        ((3, 1, 2, 0, 4), (0, 1, 3, 4, 2)),
-        ((3, 1, 2, 0, 4), (0, 4, 3, 1, 2)),
-        ((3, 1, 2, 0, 4), (3, 1, 0, 4, 2)),
-        ((3, 1, 2, 0, 4), (3, 4, 0, 1, 2)),
-        ((3, 4, 2, 0, 1), (0, 1, 3, 4, 2)),
-        ((3, 4, 2, 0, 1), (0, 4, 3, 1, 2)),
-        ((3, 4, 2, 0, 1), (3, 1, 0, 4, 2)),
-        ((3, 4, 2, 0, 1), (3, 4, 0, 1, 2))
     }
 
-    for front_size in PQTreeDup.from_perms(perms2):
-        print(front_size)
+    size = [s for s in PQTreeDup.from_perms(perms2)]
+    print("5555555555555555555555555555")
+    print(size)
+
 
 if __name__ == '__main__':
-    PQTreeBuilder.from_perms(((0,1,2,3,4), (0, 1, 3, 4, 2)))
-    PQTreeBuilder.from_perms(((0, 4, 2, 3, 1), (0, 1, 3, 4, 2)))
+    # PQTreeVisualizer.show(PQTreeBuilder.from_perms(((0, 1, 2, 3, 4), (0, 4, 3, 1, 2))))
+    # PQTreeVisualizer.show(PQTreeBuilder.from_perms(((0, 4, 2, 3, 1), (0, 1, 3, 4, 2))))
+    # PQTreeVisualizer.show(PQTreeBuilder.from_perms((('a', 'e', 'c', 'd', 'b'), ('a', 'b', 'd', 'e', 'c'))))
 
-    # test_perm_space()
+    test_perm_space()

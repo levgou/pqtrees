@@ -4,7 +4,7 @@ from collections import defaultdict
 from functools import reduce
 from itertools import permutations, product, tee
 from pprint import pprint
-from typing import List, Union, Callable
+from typing import List, Union, Callable, Dict, Optional
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -14,7 +14,7 @@ from funcy import pairwise, lmap
 
 from pqtrees.common_intervals.common_interval import CommonInterval
 from pqtrees.common_intervals.generate_s import IntervalHierarchy
-from pqtrees.common_intervals.proj_types import Interval
+from pqtrees.common_intervals.proj_types import Interval, Index
 from pqtrees.common_intervals.reduce_intervals import ReduceIntervals
 from pqtrees.common_intervals.trivial import trivial_common_k, trivial_common_k_with_singletons
 
@@ -87,6 +87,11 @@ class PQNode:
         f_size = reduce(operator.mul, children_frontier_sizes, node_multiply_factor)
         return f_size
 
+    def translate(self, denormalizer: Dict[int, object]):
+        self.interval = tuple(map(denormalizer.get, self.interval))
+        for c in self.children:
+            c.translate(denormalizer)
+
 
 class QNode(PQNode):
 
@@ -156,7 +161,7 @@ class LeafNode:
         return "L-" + str(self.ci)
 
     def to_parens(self):
-        return str(self.ci.first_end)
+        return self.ci.sign
 
     def immute(self):
         return
@@ -179,17 +184,16 @@ class LeafNode:
     def __hash__(self):
         return hash(self.ci)
 
-    def frontier_size(self):
+    def approx_frontier_size(self):
         return 1
 
-    approx_frontier_size = frontier_size
+    def translate(self, denormalizer: Dict[int, object]):
+        self.ci.sign = denormalizer[self.ci.first_start]
 
 
 class PQTree:
     def __init__(self, root) -> None:
         super().__init__()
-        root.sort()
-        root.immute()
         self.root = root
 
     def to_parens(self):
@@ -220,7 +224,7 @@ class PQTreeBuilder:
         common_intervals = trivial_common_k_with_singletons(*normalized_perms)
         ir_intervals = ReduceIntervals.reduce(common_intervals)
         s = IntervalHierarchy.from_irreducible_intervals(ir_intervals)
-        return cls.from_s(s)
+        return cls.from_s(s, denormalize_dict)
 
     @classmethod
     def normalize_perms(cls, perms):
@@ -236,7 +240,7 @@ class PQTreeBuilder:
         return norm_perms, denormalizer
 
     @classmethod
-    def from_s(cls, s_intervals: IntervalHierarchy) -> 'PQTree':
+    def from_s(cls, s_intervals: IntervalHierarchy, denormalizer: Optional[Dict[Index, object]] = None) -> 'PQTree':
         construction_lut = {}
         nodes_by_level = defaultdict(list)
         processed_intervals = set()
@@ -258,7 +262,18 @@ class PQTreeBuilder:
             else:
                 cls._not_start_of_chain_case(ci, construction_lut, nodes_by_level, s_intervals)
 
-        return PQTree(construction_lut[s_intervals.boundaries])
+        root = cls.post_process_tree(construction_lut[s_intervals.boundaries], denormalizer)
+        return PQTree(root)
+
+    @classmethod
+    def post_process_tree(cls, root: PQNode, denormalizer: Dict[Index, object]):
+        root.sort()
+        root.immute()
+
+        if denormalizer:
+            root.translate(denormalizer)
+
+        return root
 
     @classmethod
     def _leaf_case(cls, ci, construction_lut, nodes_by_level, s_intervals):

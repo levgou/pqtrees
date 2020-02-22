@@ -328,7 +328,7 @@ def test_pq_tree_construction():
         s = IntervalHierarchy.from_irreducible_intervals(ir_intervals)
         pprint(s.nesting_levels)
 
-        pqtree = PQTreeBuilder.from_s(s)
+        pqtree = PQTreeBuilder.from_s(s, None)
         print(pqtree.to_parens())
         assert pqtree.to_parens() == "[[0 1 2] [[[3 4 5] 6] 7] 8]"
 
@@ -439,10 +439,39 @@ def test_pq_tree_construction():
         for t in tests:
             run_tests(*t)
 
+    def string_inputs_pqtree():
+        def test_case(length, num_perm):
+            assert length <= 10
+
+            abc = "abcdefghijklmnopqrstuvwxyz"
+            p1 = range(length)
+            translation = dict(zip(p1, abc))
+
+            perms = [list(p1) for _ in range(num_perm)]
+            it = iter(perms)
+            next(it)
+            for lst in it:
+                random.shuffle(lst)
+
+            translated_perms = ["".join(translation[n] for n in l) for l in perms]
+
+            p_repr = PQTreeBuilder.from_perms(perms).to_parens()
+            str_key_translation = {str(k): v for k, v in translation.items()}
+            p_repr_translated = "".join(str_key_translation.get(c, c) for c in p_repr)
+            str_parens = PQTreeBuilder.from_perms(translated_perms).to_parens()
+
+            print(">>>", p_repr_translated, str_parens)
+            assert p_repr_translated == str_parens
+
+        test_case(5, 2)
+        test_case(5, 4)
+        test_case(9, 4)
+
     known_example()
     known_e2e()
     known_e2e_2()
     simple_pq_tree_size_tests()
+    string_inputs_pqtree()
 
 
 if __name__ == '__main__':
@@ -452,10 +481,10 @@ if __name__ == '__main__':
     test_common_intervals_2_perms(bsc_k)
     # test_common_intervals(lhp)
     # test_common_intervals(rc)
-    # test_rand_perm_comp_all_algs(trivial_common, trivial_common_k, bsc, bsc_k)
+    test_rand_perm_comp_all_algs(trivial_common, trivial_common_k, bsc, bsc_k)
 
-    # test_common_intervals_k_perms(trivial_common_k)
-    # test_common_intervals_k_perms(bsc_k)
+    test_common_intervals_k_perms(trivial_common_k)
+    test_common_intervals_k_perms(bsc_k)
 
-    # test_rand_k_perms_comp_all_algs(trivial_common_k, bsc_k)
+    test_rand_k_perms_comp_all_algs(trivial_common_k, bsc_k)
     test_pq_tree_construction()
