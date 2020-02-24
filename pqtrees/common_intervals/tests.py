@@ -467,11 +467,58 @@ def test_pq_tree_construction():
         test_case(5, 4)
         test_case(9, 4)
 
+    def compare_oren():
+        perms_2851 = [
+            (1, 2, 3, 4, 5, 6, 7, 8, 9),
+            (6, 1, 2, 3, 4, 5, 7, 8, 9),
+        ]
+        perms_4545 = [
+            (1, 2, 3, 4, 5, 6, 7),
+            (2, 3, 4, 1, 5, 6, 7),
+        ]
+
+        perms_790 = [
+            (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14),
+            (7, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14),
+        ]
+
+        assert PQTreeBuilder.from_perms(perms_2851).to_parens() == "[[[1 2 3 4 5] 6] 7 8 9]"
+        assert PQTreeBuilder.from_perms(perms_4545).to_parens() == "[[1 [2 3 4]] 5 6 7]"
+        assert PQTreeBuilder.from_perms(perms_790).to_parens() == "[[[1 2 3 4 5 6] 7] 8 9 10 11 12 13 14]"
+
+    def compare_oren_from_rand():
+
+        ps1 = [
+            (1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
+            (9, 3, 2, 6, 5, 1, 8, 10, 7, 4)
+        ]
+
+        ps2 = [
+            (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
+            (14, 10, 12, 7, 1, 3, 5, 13, 8, 2, 6, 11, 9, 4, 15)
+        ]
+
+        ps3 = [
+            (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20),
+            (3, 20, 6, 8, 5, 19, 13, 15, 11, 10, 14, 12, 17, 9, 7, 1, 4, 16, 2, 18)
+        ]
+
+        print(PQTreeBuilder.from_perms(ps1).to_parens())
+        print(PQTreeBuilder.from_perms(ps2).to_parens())
+        print(PQTreeBuilder.from_perms(ps3).to_parens())
+
+        assert PQTreeBuilder.from_perms(ps1).to_parens() == "(1 [2 3] 4 [5 6] 7 8 9 10)"
+        assert PQTreeBuilder.from_perms(ps2).to_parens() == "[[(1 2 3 4 5 6 7 8 9 10 11 12 13) 14] 15]"
+        assert PQTreeBuilder.from_perms(ps3).to_parens() == "(1 2 3 4 5 6 7 8 9 ([10 11] 12 13 14 15) 16 17 18 19 20)"
+
+
     known_example()
     known_e2e()
     known_e2e_2()
     simple_pq_tree_size_tests()
     string_inputs_pqtree()
+    compare_oren()
+    compare_oren_from_rand()
 
 
 if __name__ == '__main__':
@@ -479,8 +526,6 @@ if __name__ == '__main__':
     test_common_intervals_2_perms(trivial_common_k)
     test_common_intervals_2_perms(bsc)
     test_common_intervals_2_perms(bsc_k)
-    # test_common_intervals(lhp)
-    # test_common_intervals(rc)
     test_rand_perm_comp_all_algs(trivial_common, trivial_common_k, bsc, bsc_k)
 
     test_common_intervals_k_perms(trivial_common_k)
