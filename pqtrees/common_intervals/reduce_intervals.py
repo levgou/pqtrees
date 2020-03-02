@@ -2,7 +2,7 @@ from typing import Collection, Set, List
 from itertools import permutations
 
 import networkx as nx
-from funcy import lmap
+from funcy import lmap, lfilter
 
 from pqtrees.common_intervals.common_interval import CommonInterval
 
@@ -23,21 +23,35 @@ class ReduceIntervals:
     def _add_successors(cls, g: nx.DiGraph, intervals: CommonIntervals, interval: CommonInterval) -> None:
         lmap(lambda ci: g.add_edge(interval, ci), cls._intersects_with(intervals, interval))
 
+    # @classmethod
+    # def _rem_redundent_recursive(cls, g: nx.DiGraph):
+
     @classmethod
     def _find_redundant_intervals(cls, intervals: CommonIntervals) -> IntervalSet:
-        interval_graph = nx.DiGraph()
+        # interval_graph = nx.DiGraph()
 
-        lmap(interval_graph.add_node, intervals)
-        lmap(lambda ci: cls._add_successors(interval_graph, intervals, ci), intervals)
+        no_singleton_intervals = lfilter(lambda inter: inter.first_end != inter.first_start, intervals)
+        # lmap(interval_graph.add_node, no_singleton_intervals)
+        # lmap(lambda ci: cls._add_successors(interval_graph,no_singleton_intervals, ci), no_singleton_intervals)
+        intersection_dict = {ci: cls._intersects_with(no_singleton_intervals, ci) for ci in no_singleton_intervals}
+        start_end_index = {(ci.first_start, ci.first_end): ci for ci in no_singleton_intervals}
 
-        start_end_index = {(ci.first_start, ci.first_end): ci for ci in intervals}
+        redundant2 = {
 
-        redundant_intervals = {
             start_end_index.get((src.first_start, dest.first_end))
-            for src, dest in permutations(intervals, 2)
-            if nx.has_path(interval_graph, src, dest)
+            for src in no_singleton_intervals
+            for dest in intersection_dict[src]
         }
-        return redundant_intervals - {None}
+
+        # redundant_intervals = {
+        #     start_end_index.get((src.first_start, dest.first_end))
+        #     for src, dest in permutations(no_singleton_intervals, 2)
+        #     if nx.has_path(interval_graph, src, dest)
+        #
+        # }
+        # assert redundant2 == redundant_intervals
+        # return redundant_intervals - {None}
+        return redundant2 - {None}
 
     @classmethod
     def reduce(cls, intervals: Collection[CommonInterval]) -> Set[CommonInterval]:

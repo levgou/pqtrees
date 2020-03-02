@@ -10,6 +10,7 @@ from pqtrees.common_intervals.pqtree import PQTree, PQTreeBuilder, PQTreeVisuali
 from pqtrees.common_intervals.reduce_candidate import rc
 from pqtrees.common_intervals.reduce_intervals import ReduceIntervals
 from pqtrees.common_intervals.trivial import trivial_common, trivial_common_k, trivial_common_k_with_singletons
+from pqtrees.common_intervals.preprocess_find import common_k_indexed_with_singletons, common_k_indexed
 from timeit import default_timer as timer
 from pprint import pprint
 
@@ -345,6 +346,7 @@ def test_pq_tree_construction():
         strs = {"".join(str(x) for x in p) for p in perms}
 
         common_intervals = trivial_common_k_with_singletons(*perms)
+        common_intervals = common_k_indexed_with_singletons(*perms)
 
         ir_intervals = ReduceIntervals.reduce(common_intervals)
         s = IntervalHierarchy.from_irreducible_intervals(ir_intervals)
@@ -511,7 +513,6 @@ def test_pq_tree_construction():
         assert PQTreeBuilder.from_perms(ps2).to_parens() == "[[(1 2 3 4 5 6 7 8 9 10 11 12 13) 14] 15]"
         assert PQTreeBuilder.from_perms(ps3).to_parens() == "(1 2 3 4 5 6 7 8 9 ([10 11] 12 13 14 15) 16 17 18 19 20)"
 
-
     known_example()
     known_e2e()
     known_e2e_2()
@@ -526,10 +527,10 @@ if __name__ == '__main__':
     test_common_intervals_2_perms(trivial_common_k)
     test_common_intervals_2_perms(bsc)
     test_common_intervals_2_perms(bsc_k)
-    test_rand_perm_comp_all_algs(trivial_common, trivial_common_k, bsc, bsc_k)
+    test_rand_perm_comp_all_algs(trivial_common, trivial_common_k, bsc, bsc_k, common_k_indexed)
 
     test_common_intervals_k_perms(trivial_common_k)
     test_common_intervals_k_perms(bsc_k)
 
-    test_rand_k_perms_comp_all_algs(trivial_common_k, bsc_k)
+    test_rand_k_perms_comp_all_algs(trivial_common_k, bsc_k, common_k_indexed)
     test_pq_tree_construction()

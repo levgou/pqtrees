@@ -14,6 +14,7 @@ from funcy import pairwise, lmap
 
 from pqtrees.common_intervals.common_interval import CommonInterval
 from pqtrees.common_intervals.generate_s import IntervalHierarchy
+from pqtrees.common_intervals.preprocess_find import common_k_indexed_with_singletons
 from pqtrees.common_intervals.proj_types import Interval, Index
 from pqtrees.common_intervals.reduce_intervals import ReduceIntervals
 from pqtrees.common_intervals.trivial import trivial_common_k, trivial_common_k_with_singletons
@@ -65,7 +66,7 @@ class PQNode:
         if c in self.children:
             raise Exception(f"{c} already in {self}")
 
-        print(f"Adding {c} to {self}")
+        # print(f"Adding {c} to {self}")
         self.children.append(c)
 
     def sort(self):
@@ -214,14 +215,9 @@ class PQTreeBuilder:
 
     @classmethod
     def from_perms(cls, perms):
-
-        # todo: note denormalize_dict
-        # todo: note denormalize_dict
-        # todo: note denormalize_dict
-        # todo: note denormalize_dict
-
         normalized_perms, denormalize_dict = cls.normalize_perms(perms)
-        common_intervals = trivial_common_k_with_singletons(*normalized_perms)
+        # common_intervals = trivial_common_k_with_singletons(*normalized_perms)
+        common_intervals = common_k_indexed_with_singletons(*normalized_perms)
         ir_intervals = ReduceIntervals.reduce(common_intervals)
         s = IntervalHierarchy.from_irreducible_intervals(ir_intervals)
         return cls.from_s(s, denormalize_dict)
@@ -246,7 +242,7 @@ class PQTreeBuilder:
         processed_intervals = set()
 
         for ci in s_intervals.iter_bottom_up():
-            print(f"Processing: {ci}")
+            # print(f"Processing: {ci}")
 
             if ci in processed_intervals:
                 continue
@@ -277,14 +273,14 @@ class PQTreeBuilder:
 
     @classmethod
     def _leaf_case(cls, ci, construction_lut, nodes_by_level, s_intervals):
-        print("Adding trivial", ci.first_start, ci.first_end)
+        # print("Adding trivial", ci.first_start, ci.first_end)
         leaf = LeafNode(ci)
         construction_lut[ci.first_start, ci.first_end] = leaf
         nodes_by_level[s_intervals.reverse_index[ci]].append(leaf)
 
     @classmethod
     def _start_of_chain_case(cls, ci, chain, construction_lut, processed_intervals, nodes_by_level, s_intervals):
-        print(">>> Chain starting with", ci)
+        # print(">>> Chain starting with", ci)
         qnode = QNode.from_chain(chain)
 
         for ci1, ci2 in pairwise(chain):
@@ -300,7 +296,7 @@ class PQTreeBuilder:
                 continue
             only_in_2 = (ci1.first_end + 1, ci3.first_start - 1)
             qnode.add_child(construction_lut[only_in_2])
-            print(ci1, ci2, ci3)
+            # print(ci1, ci2, ci3)
 
         first, second = chain[:2]
         qnode.add_child(construction_lut[(first.first_start, second.first_start - 1)])
@@ -312,22 +308,22 @@ class PQTreeBuilder:
         #     only_in_2 = (ci1.first_end + 1, ci2.first_end)
         #     qnode.add_child(construction_lut[only_in_2])
 
-        print("Adding QNode", chain[0].first_start, chain[-1].first_end)
-        print(" |- And ", chain[0].first_start, chain[0].first_end)
+        # print("Adding QNode", chain[0].first_start, chain[-1].first_end)
+        # print(" |- And ", chain[0].first_start, chain[0].first_end)
         construction_lut[chain[0].first_start, chain[-1].first_end] = qnode
         construction_lut[chain[0].first_start, chain[0].first_end] = qnode
         nodes_by_level[s_intervals.reverse_index[ci]].append(qnode)
 
     @classmethod
     def _not_start_of_chain_case(cls, ci, construction_lut, nodes_by_level, s_intervals):
-        print("@@@ Not Chain with", ci)
+        # print("@@@ Not Chain with", ci)
         pnode = PNode.from_interval(ci)
 
         for lower_node in nodes_by_level[s_intervals.reverse_index[ci] + 1]:
             if lower_node in pnode:
                 pnode.add_child(lower_node)
 
-        print("Adding Pnode", ci.first_start, ci.first_end)
+        # print("Adding Pnode", ci.first_start, ci.first_end)
         pnode = pnode.to_qnode_if_needed()
         construction_lut[ci.first_start, ci.first_end] = pnode
         nodes_by_level[s_intervals.reverse_index[ci]].append(pnode)
