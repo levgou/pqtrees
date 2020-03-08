@@ -1,9 +1,9 @@
 from collections import Counter
 from dataclasses import dataclass
-from typing import Tuple, Dict, Optional
+from typing import Tuple, Dict, Optional, List
 
 
-@dataclass
+@dataclass(frozen=True)
 class MultipleOccurrenceChar:
     char: object
     count: int
@@ -15,7 +15,7 @@ class MultipleOccurrenceChar:
         return f"MC({self.char},{self.count})"
 
 
-@dataclass
+@dataclass(frozen=True)
 class MergedChar:
     char_orders: Tuple[Tuple[object, object], ...]
     counts: Dict[object, int]
@@ -32,7 +32,7 @@ class MergedChar:
         return MergedChar(tuple(sorted(count[0] for count in counts.most_common())), counts)
 
 
-@dataclass
+@dataclass(frozen=True)
 class ContextChar:
     left_char: Optional[object]
     char: object
@@ -49,3 +49,7 @@ class ContextChar:
 
     def __repr__(self):
         return f"CC[{self.left_char}, <{self.char}>, {self.right_char}]"
+
+
+
+ContextPerm = List[ContextChar]

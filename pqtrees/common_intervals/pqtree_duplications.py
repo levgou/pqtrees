@@ -4,14 +4,20 @@ from functools import reduce
 from itertools import product, permutations, chain
 from pprint import pprint
 from random import shuffle
-from typing import Tuple
+from typing import Tuple, Collection, List, Dict, Optional
 
-from funcy import lmap, flatten, select_values, group_by
+from funcy import lmap, flatten, select_values, lfilter, lflatten
+from heapdict import heapdict
 
-from pqtrees.common_intervals.perm_helpers import is_list_consecutive, all_indices, irange, tmap1, group_by_attr
+from pqtrees.common_intervals.perm_helpers import is_list_consecutive, all_indices, irange, tmap1, group_by_attr, \
+    sflatmap1, num_appear, flatmap, lflatmap, filter_cchars, all_neighbours_list, neighbours_of, sflatten, \
+    char_neighbour_tuples, iter_common_neighbours, assoc_cchars_with_neighbours
 from pqtrees.common_intervals.pqtree import PQTreeBuilder
 from pqtrees.iterator_product import IterProduct
-from pqtrees.common_intervals.generalized_letters import MultipleOccurrenceChar as MultiChar, ContextChar, MergedChar
+from pqtrees.common_intervals.generalized_letters import MultipleOccurrenceChar as MultiChar, ContextChar, MergedChar, \
+    ContextPerm
+
+Translation = Dict[Tuple[ContextChar, ContextChar], MergedChar]
 
 
 class PQTreeDup:
@@ -112,6 +118,19 @@ class PQTreeDup:
 
     @classmethod
     def can_merge_multi_chars(cls, context_perms):
+        """
+        Will return a dictionary of the structure:
+        {
+            char1: {
+                        perm1: [ContextChar1, ..., ContextCharK]
+                        perm2: [...]
+                    }
+
+            char2: {...}
+        }
+
+        each context char has common neighbour with at LEAST ONE context char for EACH other perm
+        """
         more_than_once = cls.find_multi_chars(context_perms[0])
 
         def common_neighbour_set(char):
@@ -129,9 +148,10 @@ class PQTreeDup:
         for char in more_than_once:
             neighbours = common_neighbour_set(char)
             if neighbours:
-                cc_anywhere = filter(lambda cc: cc.char == char, chain(*context_perms))
-                cc_with_common_neighbours = flatten(tmap1(neighbours_of, cc_anywhere, neighbours))
-                mergable_chars[char] = group_by_attr('perm', cc_with_common_neighbours)
+                cc_anywhere = lfilter(lambda cc: cc.char == char, chain(*context_perms))
+                cc_with_common_neighbours = sflatmap1(neighbours_of, cc_anywhere, neighbours)
+                mergable_chars_per_perm = group_by_attr('perm', cc_with_common_neighbours)
+                mergable_chars[char] = mergable_chars_per_perm
                 # mergable_chars[char] = neighbours_of(filter(lambda cc: cc.char == char, chain(*context_perms)), char)
 
         return mergable_chars
@@ -140,7 +160,14 @@ class PQTreeDup:
     def merge_multi_chars(cls, perms):
         context_perms = cls.to_context_chars(perms)
         mergable_chars = cls.can_merge_multi_chars(context_perms)
-        print(mergable_chars)
+
+        maybe_no_loss_mergable_chars = [
+            char for char, cc_per_perm in mergable_chars.items()
+            if len(cc_per_perm[perms[0]]) == num_appear(perms[0], char)
+        ]
+
+        return cls.try_merge_chars_no_loss(context_perms, mergable_chars, maybe_no_loss_mergable_chars)
+        pprint(mergable_chars)
 
     @classmethod
     def can_reduce_chars(cls, id_perm, others):
@@ -184,6 +211,99 @@ class PQTreeDup:
             tmap1(ContextChar.from_perm_index, p, irange(p))
             for p in perms
         )
+
+    @classmethod
+    def try_merge_chars_no_loss(cls, context_perms: Collection[ContextPerm],
+                                mergable_chars: Dict[object, Dict[Collection, List[ContextChar]]],
+                                chars_to_merge: Collection) -> Optional[Translation]:
+        translation = {}
+
+        # def construct_neighbour_occurrence_heap(relevant_cchars):
+        #     all_neighbours = all_neighbours_list(relevant_cchars)
+        #     count = Counter(all_neighbours)
+        #     return heapdict(count)
+
+        # for char in chars_to_merge:
+        # relevant_cchars = filter_cchars(char, *context_perms)
+        # heap = construct_neighbour_occurrence_heap(relevant_cchars)
+        # heap2 = heapdict(heap)
+
+        for char in chars_to_merge:
+            if char_trans := cls.try_merge_char(context_perms, mergable_chars[char]):
+                translation.update(char_trans)
+            else:
+                return None
+
+    @classmethod
+    def try_merge_char(cls,
+                       context_perms: Collection[ContextPerm],
+                       cur_mergable_chars: Dict[Collection, List[ContextChar]]) -> Optional[Translation]:
+
+        def iter_pairing_space():
+            return IterProduct.iproduct(*[permutations(cchars) for cchars in cur_mergable_chars.values()])
+
+        def try_translate_pairing(pairing, cur_translation=None, already_used=None):
+            cur_translation = cur_translation or {}
+            already_used = already_used or set()
+
+            l_pairing = list(pairing)
+            while cur_cchars := l_pairing.pop():
+                for neighbour in iter_common_neighbours(*cur_cchars):
+
+                    cchars_with_neighbours_tuples = assoc_cchars_with_neighbours(cur_cchars, neighbour, context_perms)
+
+                    if any(cc in already_used for cc in chain(cchars_with_neighbours_tuples)):
+                        continue
+
+                    merged_char = MergedChar.from_occurrences(char_neighbour_tuples(cur_cchars, neighbour))
+                    updated_translation = {
+                        **cur_translation,
+                        **{t: merged_char for t in cchars_with_neighbours_tuples}
+                    }
+
+                    new_used = already_used | set(chain(cchars_with_neighbours_tuples))
+
+                    if trans := try_translate_pairing(l_pairing, updated_translation, new_used):
+                        return trans
+
+                return None
+
+        for pairing in iter_pairing_space():
+            if trans := try_translate_pairing(pairing):
+                return trans
+        return None
+
+
+#         if cur_translation is None:
+#             cur_translation = dict()
+#
+#         if not heapdict:
+#             return cur_translation
+#
+#         heap = heapdict(neighbour_heap)
+#         char, freq = heap.popitem()
+#
+#         if freq < len(cur_mergable_chars):
+#             return None
+#
+#         cchars_per_perm = {perm: neighbours_of(char, perm) for perm in cur_mergable_chars}
+#
+#         if all(len(cchars) == 1 for cchars in cchars_per_perm.values()):
+#             cchar_to_rm = sflatten(cchars_per_perm.values())
+#             mergable_chars = {
+#                 perm: lfilter(lambda cc: cc not in cchar_to_rm, cchars)
+#                 for perm, cchars in cur_mergable_chars.items()
+#             }
+#             updated_translation = {
+#                 **cur_translation,
+#                 **{cchar: MergedChar.from_occurrences(char_neighbour_tuples(cchar_to_rm, char))
+#                    for cchar in cchar_to_rm}
+#             }
+#
+# # todo update heap
+#             return cls.try_merge_char(heap, mergable_chars, updated_translation)
+#
+#         else:
 
 
 def test_perm_space():
@@ -255,7 +375,8 @@ def test_reduce_perms():
 
         [
             [(1, 1, 2, 2, 3, 3), (3, 3, 2, 2, 1, 1)],
-            ((MultiChar(1, 2), MultiChar(2, 2), MultiChar(3, 2)), (MultiChar(3, 2), MultiChar(2, 2), MultiChar(1, 2)))
+            ((MultiChar(1, 2), MultiChar(2, 2), MultiChar(3, 2)),
+             (MultiChar(3, 2), MultiChar(2, 2), MultiChar(1, 2)))
         ],
 
         [
