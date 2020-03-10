@@ -1,3 +1,4 @@
+import json
 import math
 import operator
 from collections import defaultdict
@@ -57,6 +58,12 @@ class PQNode:
 
     def to_parens(self):
         return " ".join(map(lambda x: x.to_parens(), self.children))
+
+    def dict_repr(self):
+        return {
+            "type": self.__class__.__name__,
+            "children": [c.dict_repr() for c in self.children]
+        }
 
     def with_children(self, children):
         self.children = children
@@ -164,6 +171,12 @@ class LeafNode:
     def to_parens(self):
         return self.ci.sign
 
+    def dict_repr(self):
+        return {
+            "type": "LEAF",
+            "char": self.ci.sign
+        }
+
     def immute(self):
         return
 
@@ -210,9 +223,15 @@ class PQTree:
         """
         return self.root.approx_frontier_size()
 
+    def dict_repr(self) -> dict:
+        return {"root": self.root.dict_repr()}
+
+    def to_json(self, pretty=False) -> str:
+        kwargs = {"indent": 2} if pretty else {}
+        return json.dumps(self.dict_repr(), **kwargs)
+
 
 class PQTreeBuilder:
-
     @classmethod
     def from_perms(cls, perms):
         normalized_perms, denormalize_dict = cls.normalize_perms(perms)

@@ -345,8 +345,10 @@ def test_pq_tree_construction():
 
         strs = {"".join(str(x) for x in p) for p in perms}
 
-        common_intervals = trivial_common_k_with_singletons(*perms)
+        common_intervals_trivial = trivial_common_k_with_singletons(*perms)
         common_intervals = common_k_indexed_with_singletons(*perms)
+
+        assert common_intervals_trivial == common_intervals
 
         ir_intervals = ReduceIntervals.reduce(common_intervals)
         s = IntervalHierarchy.from_irreducible_intervals(ir_intervals)
@@ -358,8 +360,6 @@ def test_pq_tree_construction():
         print(pqtree.to_parens())
         assert pqtree.to_parens() == "[0 (1 2 3) 4]"
         assert strs.issubset(frontier), strs - frontier
-
-        # pqtree.show()
 
     def known_e2e_2():
         """pqtrees/docs/_static/images/pqtree-example-rat-human.png"""
@@ -522,6 +522,50 @@ def test_pq_tree_construction():
     compare_oren_from_rand()
 
 
+def test_json_repr():
+    perms = [
+        (0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
+        (9, 8, 7, 6, 3, 1, 5, 4, 2, 0)
+    ]
+    tree = PQTreeBuilder.from_perms(perms)
+    assert tree.dict_repr() == {
+        'root': {
+            'type': 'QNode',
+            'children': [
+                {'type': 'LEAF', 'char': '0'},
+                {
+                    'type': 'PNode',
+                    'children': [
+                        {'type': 'LEAF', 'char': '1'},
+                        {'type': 'LEAF', 'char': '2'},
+                        {'type': 'LEAF', 'char': '3'},
+                        {
+                            'type': 'QNode',
+                            'children': [
+                                {'type': 'LEAF', 'char': '4'},
+                                {'type': 'LEAF', 'char': '5'}
+                            ]
+                        }
+                    ]
+                },
+                {'type': 'LEAF', 'char': '6'},
+                {'type': 'LEAF', 'char': '7'},
+                {'type': 'LEAF', 'char': '8'},
+                {'type': 'LEAF', 'char': '9'}
+            ]
+        }
+    }
+
+    assert tree.to_json() == '{"root": {"type": "QNode",' \
+                             ' "children": [{"type": "LEAF", "char": "0"}, ' \
+                             '{"type": "PNode", "children": [{"type": "LEAF", "char": "1"}, ' \
+                             '{"type": "LEAF", "char": "2"}, {"type": "LEAF", "char": "3"}, ' \
+                             '{"type": "QNode", "children": [{"type": "LEAF", "char": "4"}, ' \
+                             '{"type": "LEAF", "char": "5"}]}]}, {"type": "LEAF", "char": "6"}, ' \
+                             '{"type": "LEAF", "char": "7"}, {"type": "LEAF", "char": "8"},' \
+                             ' {"type": "LEAF", "char": "9"}]}}'
+
+
 if __name__ == '__main__':
     test_common_intervals_2_perms(trivial_common)
     test_common_intervals_2_perms(trivial_common_k)
@@ -534,3 +578,4 @@ if __name__ == '__main__':
 
     test_rand_k_perms_comp_all_algs(trivial_common_k, bsc_k, common_k_indexed)
     test_pq_tree_construction()
+    test_json_repr()

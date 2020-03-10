@@ -439,3 +439,6 @@ if __name__ == '__main__':
     # test_reduce_perms()
     # test_context_char_conversion()
     test_merge_chars()
+    trees = (list(PQTreeDup.from_perms([(1, 2, 3, 4, 1), (1, 3, 4, 2, 1), (1, 4, 3, 2, 1)])))
+    print([t.approx_frontier_size() for t in trees][-1])
+
