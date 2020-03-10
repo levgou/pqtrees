@@ -1,8 +1,8 @@
 .. role:: bash(code)
    :language: bash
 
-.. role::py(code)
-   :language: python3
+.. role:: py(code)
+   :language: python
 
 PQTree
 ##############
@@ -43,4 +43,4 @@ Basic
    :py:`PQTreeDup.from_perms(ListOfTuples)`
 
     * The above method will return an iterator,
-      you can sort the trees by their aprox. frontier size
+      you can sort the trees by their approx. frontier size
