@@ -5,4 +5,4 @@ networkx>=2.4
 matplotlib>=3.1.1
 pygraphviz>=1.5
 HeapDict >= 1.0.1
-
+frozendict

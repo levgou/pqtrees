@@ -1,23 +1,28 @@
 import operator
 from collections import Counter, defaultdict
-from functools import reduce
+from copy import deepcopy
+from dataclasses import dataclass
+from functools import reduce, partial
 from itertools import product, permutations, chain
-from pprint import pprint
-from random import shuffle
-from typing import Tuple, Collection, List, Dict, Optional
+from typing import Tuple, Collection, List, Dict, Optional, Sequence, Set, Mapping
 
-from funcy import lmap, flatten, select_values, lfilter, lflatten
-from heapdict import heapdict
+from frozendict import frozendict
+from funcy import lmap, flatten, select_values, lfilter, select_keys, merge
 
-from pqtrees.common_intervals.perm_helpers import is_list_consecutive, all_indices, irange, tmap1, group_by_attr, \
-    sflatmap1, num_appear, flatmap, lflatmap, filter_cchars, all_neighbours_list, neighbours_of, sflatten, \
-    char_neighbour_tuples, iter_common_neighbours, assoc_cchars_with_neighbours
-from pqtrees.common_intervals.pqtree import PQTreeBuilder
+from pqtrees.common_intervals.perm_helpers import (
+    is_list_consecutive, all_indices, irange, tmap1, group_by_attr, sflatmap1, num_appear,
+    assoc_cchars_with_neighbours,
+    tmap, tfilter, tfilter1)
+
+from pqtrees.common_intervals.pqtree import PQTreeBuilder, PQTree, LeafNode, QNode, PNode
+from pqtrees.common_intervals.trivial import window
 from pqtrees.iterator_product import IterProduct
-from pqtrees.common_intervals.generalized_letters import MultipleOccurrenceChar as MultiChar, ContextChar, MergedChar, \
-    ContextPerm
+from pqtrees.common_intervals.generalized_letters import (
+    MultipleOccurrenceChar as MultiChar, ContextChar, MergedChar, ContextPerm,
+    char_neighbour_tuples, iter_common_neighbours)
 
-Translation = Dict[Tuple[ContextChar, ContextChar], MergedChar]
+Translation = Set[Mapping[Tuple[ContextChar, ContextChar], MergedChar]]
+CPermutations = Sequence[Sequence[ContextChar]]
 
 
 class PQTreeDup:
@@ -29,8 +34,34 @@ class PQTreeDup:
             return
 
         for perm_set in cls.traverse_perm_space(perms):
-            # print(perm_set)
             yield PQTreeBuilder.from_perms(perm_set)
+
+    @classmethod
+    def from_perms_with_merge(cls, perms):
+        trans_perms, translation = cls.merge_multi_chars(perms)
+        if not trans_perms:
+            return None
+
+        raw_tree = PQTreeBuilder.from_perms(trans_perms)
+        final_tree = cls.process_merged_chars(raw_tree)
+        return final_tree
+
+    @classmethod
+    def process_merged_chars(cls, raw_tree: PQTree):
+        tree_copy = deepcopy(raw_tree)
+        for node, parent in tree_copy:
+            if not isinstance(node, LeafNode):
+                continue
+            if not isinstance(node.ci.alt_sign, MergedChar):
+                continue
+
+            mc = node.ci.alt_sign
+            # if parent is a Q node just accept children as leafs,
+            # same behaviour in case the chars always show up in the same order
+            if isinstance(parent, PNode) or len(mc.char_orders) == 1:
+                parent.replace_child(node, LeafNode())
+            else:
+                parent.replace_child(node, QNode(LeafNode()))
 
     @classmethod
     def has_duplications(cls, perm):
@@ -99,8 +130,8 @@ class PQTreeDup:
 
         yield:
         [
-          {'a': (1,), 'b': (2, 3), 'c': (4, 5)},
           {'a': (1,), 'b': (2, 3), 'c': (5, 4)},
+          {'a': (1,), 'b': (2, 3), 'c': (4, 5)},
           {'a': (1,), 'b': (3, 2), 'c': (4, 5)},
           {'a': (1,), 'b': (3, 2), 'c': (5, 4)}
         ]
@@ -156,18 +187,48 @@ class PQTreeDup:
 
         return mergable_chars
 
+    @dataclass
+    class MergeSettings:
+        prefer_same_order_merge: bool
+        no_loss_only: bool
+
     @classmethod
-    def merge_multi_chars(cls, perms):
+    def merge_multi_chars(cls, perms, merge_settings: MergeSettings = None):
+        if not cls.has_duplications(perms[0]):
+            return perms, {}
+
         context_perms = cls.to_context_chars(perms)
         mergable_chars = cls.can_merge_multi_chars(context_perms)
 
+        # test that we can merge all but maybe one appearance for each char
         maybe_no_loss_mergable_chars = [
             char for char, cc_per_perm in mergable_chars.items()
-            if len(cc_per_perm[perms[0]]) == num_appear(perms[0], char)
+            if len(cc_per_perm[perms[0]]) >= num_appear(perms[0], char) - 1
         ]
 
-        return cls.try_merge_chars_no_loss(context_perms, mergable_chars, maybe_no_loss_mergable_chars)
-        pprint(mergable_chars)
+        translation = cls.try_merge_chars_no_loss(context_perms, mergable_chars, maybe_no_loss_mergable_chars)
+        if not translation:
+            return None, None
+
+        return cls.translate(context_perms, translation), translation
+
+    @classmethod
+    def translate(cls, cperms: CPermutations, translation: Translation):
+        dict_trans = merge(*map(dict, translation))
+
+        def translate_perm(cperm):
+            it2 = window(chain(cperm, [None]))
+            perm = []
+
+            for w in it2:
+                if w in dict_trans:
+                    perm.append(dict_trans[w])
+                    next(it2)
+                else:
+                    perm.append(w[0].char)
+            return tuple(perm)
+
+        return tmap(translate_perm, cperms)
 
     @classmethod
     def can_reduce_chars(cls, id_perm, others):
@@ -216,229 +277,79 @@ class PQTreeDup:
     def try_merge_chars_no_loss(cls, context_perms: Collection[ContextPerm],
                                 mergable_chars: Dict[object, Dict[Collection, List[ContextChar]]],
                                 chars_to_merge: Collection) -> Optional[Translation]:
-        translation = {}
-
-        # def construct_neighbour_occurrence_heap(relevant_cchars):
-        #     all_neighbours = all_neighbours_list(relevant_cchars)
-        #     count = Counter(all_neighbours)
-        #     return heapdict(count)
-
-        # for char in chars_to_merge:
-        # relevant_cchars = filter_cchars(char, *context_perms)
-        # heap = construct_neighbour_occurrence_heap(relevant_cchars)
-        # heap2 = heapdict(heap)
+        translation = set()
 
         for char in chars_to_merge:
+            char_count = next(iter(mergable_chars[char])).count(char)
             if char_trans := cls.try_merge_char(context_perms, mergable_chars[char]):
-                translation.update(char_trans)
+                if char_count == len(char_trans):
+                    # we could compute all and remove merged char whose occurrences don't agree on the order
+                    _redundant = char_trans.pop()
+
+                translation |= char_trans
             else:
                 return None
+        return translation
+
+    @classmethod
+    def iter_pairing_space(cls, seqs_to_pair):
+        return IterProduct.iproduct(*[permutations(cchars) for cchars in seqs_to_pair])
+
+    @classmethod
+    def try_merge_cchar(cls, already_used: set, translation: set, cchars, neighbour, context_perms):
+        cchars_with_neighbours_tuples = assoc_cchars_with_neighbours(cchars, neighbour, context_perms)
+
+        if any(cc in already_used for cc in chain(cchars_with_neighbours_tuples)):
+            return None, None
+
+        # best_replacement = cls.most_agreed_replacement(cchars_with_neighbours_tuples)
+
+        merged_char = MergedChar.from_occurrences(*char_neighbour_tuples(cchars, neighbour))
+        updated_translation = {
+            *translation,
+            frozendict({t: merged_char for t in cchars_with_neighbours_tuples})
+        }
+
+        updated_used_set = already_used | set(chain(cchars_with_neighbours_tuples))
+
+        return updated_used_set, updated_translation
 
     @classmethod
     def try_merge_char(cls,
                        context_perms: Collection[ContextPerm],
                        cur_mergable_chars: Dict[Collection, List[ContextChar]]) -> Optional[Translation]:
 
-        def iter_pairing_space():
-            return IterProduct.iproduct(*[permutations(cchars) for cchars in cur_mergable_chars.values()])
-
-        def try_translate_pairing(pairing, cur_translation=None, already_used=None):
-            cur_translation = cur_translation or {}
+        def try_translate_pairing(char_pairing, cur_translation=None, already_used=None):
+            cur_translation = cur_translation or set()
             already_used = already_used or set()
 
-            l_pairing = list(pairing)
+            l_pairing = list(char_pairing)
+            if len(l_pairing) == 0:
+                return cur_translation
+
             while cur_cchars := l_pairing.pop():
                 for neighbour in iter_common_neighbours(*cur_cchars):
 
-                    cchars_with_neighbours_tuples = assoc_cchars_with_neighbours(cur_cchars, neighbour, context_perms)
+                    new_used, updated_translation = cls.try_merge_cchar(already_used, cur_translation, cur_cchars,
+                                                                        neighbour, context_perms)
 
-                    if any(cc in already_used for cc in chain(cchars_with_neighbours_tuples)):
+                    if new_used is None:
                         continue
-
-                    merged_char = MergedChar.from_occurrences(char_neighbour_tuples(cur_cchars, neighbour))
-                    updated_translation = {
-                        **cur_translation,
-                        **{t: merged_char for t in cchars_with_neighbours_tuples}
-                    }
-
-                    new_used = already_used | set(chain(cchars_with_neighbours_tuples))
 
                     if trans := try_translate_pairing(l_pairing, updated_translation, new_used):
                         return trans
 
                 return None
 
-        for pairing in iter_pairing_space():
-            if trans := try_translate_pairing(pairing):
+        for order_pairing in cls.iter_pairing_space(cur_mergable_chars.values()):
+            char_wise_pairing = zip(*order_pairing)
+            if trans := try_translate_pairing(char_wise_pairing):
                 return trans
         return None
-
-
-#         if cur_translation is None:
-#             cur_translation = dict()
-#
-#         if not heapdict:
-#             return cur_translation
-#
-#         heap = heapdict(neighbour_heap)
-#         char, freq = heap.popitem()
-#
-#         if freq < len(cur_mergable_chars):
-#             return None
-#
-#         cchars_per_perm = {perm: neighbours_of(char, perm) for perm in cur_mergable_chars}
-#
-#         if all(len(cchars) == 1 for cchars in cchars_per_perm.values()):
-#             cchar_to_rm = sflatten(cchars_per_perm.values())
-#             mergable_chars = {
-#                 perm: lfilter(lambda cc: cc not in cchar_to_rm, cchars)
-#                 for perm, cchars in cur_mergable_chars.items()
-#             }
-#             updated_translation = {
-#                 **cur_translation,
-#                 **{cchar: MergedChar.from_occurrences(char_neighbour_tuples(cchar_to_rm, char))
-#                    for cchar in cchar_to_rm}
-#             }
-#
-# # todo update heap
-#             return cls.try_merge_char(heap, mergable_chars, updated_translation)
-#
-#         else:
-
-
-def test_perm_space():
-    perms1 = [
-        (1, 1, 2),
-        (1, 2, 1)
-    ]
-
-    perms2 = [
-        (1, 2, 3, 1, 2),
-        (1, 2, 1, 2, 3)
-    ]
-
-    p = (0, 1, 1, 2, 2, 3, 3, 4)
-    p1, p2, p3 = list(p), list(p), list(p)
-    shuffle(p1), shuffle(p2), shuffle(p3)
-    p1, p2, p3 = tuple(p1), tuple(p2), tuple(p3)
-
-    perms3 = [
-        p, p1, p2, p3
-    ]
-
-    ps1 = set(PQTreeDup.traverse_perm_space(perms1))
-    ps2 = set(PQTreeDup.traverse_perm_space(perms2))
-    ps3 = set(PQTreeDup.traverse_perm_space(perms3))
-
-    assert len(ps1) == 2
-    assert len(ps2) == 4
-    assert len(ps3) == (2 * 2 * 2) ** 3
-
-    assert ps1 == {
-        ((0, 1, 2), (1, 2, 0)),
-        ((0, 1, 2), (0, 2, 1))
-    }
-
-    assert ps2 == {
-        ((0, 1, 2, 3, 4), (0, 1, 3, 4, 2)),
-        ((0, 1, 2, 3, 4), (0, 4, 3, 1, 2)),
-        ((0, 1, 2, 3, 4), (3, 1, 0, 4, 2)),
-        ((0, 1, 2, 3, 4), (3, 4, 0, 1, 2)),
-    }
-
-    size = [s for s in PQTreeDup.from_perms(perms2)]
-    print("5555555555555555555555555555")
-    print(size)
-
-
-def test_reduce_perms():
-    tests = [
-        [
-            [(1, 2, 3), (3, 2, 1)],
-            ((1, 2, 3), (3, 2, 1))
-        ],
-
-        [
-            [(1, 2, 2, 3), (3, 2, 2, 1)],
-            ((1, MultiChar(2, 2), 3), (3, MultiChar(2, 2), 1))
-        ],
-
-        [
-            [(1, 2, 2, 2, 3), (3, 2, 2, 2, 1)],
-            ((1, MultiChar(2, 3), 3), (3, MultiChar(2, 3), 1))
-        ],
-
-        [
-            [(1, 1, 2, 2, 3), (3, 2, 2, 1, 1)],
-            ((MultiChar(1, 2), MultiChar(2, 2), 3), (3, MultiChar(2, 2), MultiChar(1, 2)))
-        ],
-
-        [
-            [(1, 1, 2, 2, 3, 3), (3, 3, 2, 2, 1, 1)],
-            ((MultiChar(1, 2), MultiChar(2, 2), MultiChar(3, 2)),
-             (MultiChar(3, 2), MultiChar(2, 2), MultiChar(1, 2)))
-        ],
-
-        [
-            [(0, 0, 1, 2, 2, 3, 4, 5, 5), (5, 5, 4, 3, 2, 2, 1, 0, 0)],
-
-            ((MultiChar(0, 2), 1, MultiChar(2, 2), 3, 4, MultiChar(5, 2)),
-             (MultiChar(5, 2), 4, 3, MultiChar(2, 2), 1, MultiChar(0, 2)))
-        ],
-
-        [
-            [(1, 2, 2, 3), (3, 2, 2, 1), (1, 3, 2, 2), (2, 2, 1, 3)],
-            ((1, MultiChar(2, 2), 3), (3, MultiChar(2, 2), 1), (1, 3, MultiChar(2, 2)), (MultiChar(2, 2), 1, 3))
-        ],
-    ]
-
-    for t_input, expected in tests:
-        res = PQTreeDup.reduce_multi_chars(t_input)
-        assert res == expected
-
-
-def test_context_char_conversion():
-    tests = [
-        [tuple(tuple()), tuple(tuple())],
-        [((1,),), ((ContextChar(None, 1, None),),)],
-        [((1, 2),), ((ContextChar(None, 1, 2), ContextChar(1, 2, None)),)],
-        [((1, 2, 3),), ((ContextChar(None, 1, 2), ContextChar(1, 2, 3), ContextChar(2, 3, None)),)],
-        [((1, 2, 3), (1, 2, 3)),
-         ((ContextChar(None, 1, 2), ContextChar(1, 2, 3), ContextChar(2, 3, None)),
-          (ContextChar(None, 1, 2), ContextChar(1, 2, 3), ContextChar(2, 3, None)))],
-
-    ]
-
-    for t_in, expected in tests:
-        assert PQTreeDup.to_context_chars(t_in) == expected, expected
-
-
-def test_merge_chars():
-    tests = [
-        [
-            (
-                (1, 2, 3, 1),
-                (1, 2, 1, 3)
-            ),
-            (
-                (1, 2, MergedChar.from_occurrences((3, 1), (1, 3))),
-                (1, 2, MergedChar.from_occurrences((3, 1), (1, 3)))
-            ),
-        ]
-    ]
-    for t_in, expect in tests:
-        PQTreeDup.merge_multi_chars(t_in)
 
 
 if __name__ == '__main__':
     # PQTreeVisualizer.show(PQTreeBuilder.from_perms(((0, 1, 2, 3, 4), (0, 4, 3, 1, 2))))
     # PQTreeVisualizer.show(PQTreeBuilder.from_perms(((0, 4, 2, 3, 1), (0, 1, 3, 4, 2))))
     # PQTreeVisualizer.show(PQTreeBuilder.from_perms((('a', 'e', 'c', 'd', 'b'), ('a', 'b', 'd', 'e', 'c'))))
-
-    # test_perm_space()
-    # test_reduce_perms()
-    # test_context_char_conversion()
-    test_merge_chars()
-    trees = (list(PQTreeDup.from_perms([(1, 2, 3, 4, 1), (1, 3, 4, 2, 1), (1, 4, 3, 2, 1)])))
-    print([t.approx_frontier_size() for t in trees][-1])
-
+    pass

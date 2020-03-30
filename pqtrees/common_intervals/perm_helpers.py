@@ -1,11 +1,9 @@
 import operator
-from collections import Counter
 from functools import partial
-from typing import Iterable, Sized, Callable, Collection
+from typing import Iterable, Sized, Callable, Sequence
 
-from funcy import group_by, flatten, lfilter, chain, lmap
+from funcy import group_by, flatten, chain, select_keys
 
-from pqtrees.common_intervals.generalized_letters import ContextChar
 from pqtrees.common_intervals.trivial import window
 
 
@@ -25,6 +23,18 @@ def is_list_consecutive(lst):
     sorted_list = list(sorted(lst))
     consecutive_list = list(range(sorted_list[0], sorted_list[-1] + 1))
     return consecutive_list == sorted_list
+
+
+def all_eq(*items):
+    return items.count(items[0]) == len(items)
+
+
+def subd_dicts_eq(keys: set, *objs: object):
+    if not objs:
+        return True
+
+    eq_subset = partial(select_keys, keys)
+    return all_eq(*map(eq_subset, objs))
 
 
 def all_indices(perm, char):
@@ -57,6 +67,14 @@ def tmap1(f: Callable[[object, object], object], arg1: object, it: Iterable):
 
 def tmap2(f: Callable[[object, object], object], arg1: object, arg2: object, it: Iterable):
     return tmap(partial(f, arg1, arg2), it)
+
+
+def tfilter(pred: Callable[[object], bool], it: Iterable):
+    return tuple(filter(pred, it))
+
+
+def tfilter1(pred: Callable[[object, object], bool], arg1: object, it: Iterable):
+    return tfilter(partial(pred, arg1), it)
 
 
 def sflatten(it: Iterable):
@@ -103,38 +121,35 @@ def group_by_attr(attr: str, it: Iterable):
     return dict(group_by(operator.attrgetter(attr), it))
 
 
-def all_neighbours_list(cchars: Collection[ContextChar]) -> list:
-    return lfilter(bool, flatmap(lambda cc: [cc.right_char, cc.left_char], cchars))
+# noinspection PyTypeChecker
 
 
-def filter_cchars(char, *cchars_collections: Collection[ContextChar]):
-    return filter(lambda cc: cc.char == char, chain(*cchars_collections))
+def perms_as_stream(perms: Sequence[Sequence], l_pad=None, r_pad=None, pad_num=1):
+    """
+    for a sequence of sequences return an item stream out of those sequences (like chain)
+    padded by l_pad and r_pad:
+    ex:
+    for [[1,2], [3,4]] with default pads we would get:
+    -> None, 1, 2, None, None, 3, 4, None
 
-
-def neighbours_of(char, *cchars_collections: Collection[ContextChar]):
-    return filter(lambda cc: char in [cc.left_char, cc.right_char], chain(*cchars_collections))
-
-
-def char_neighbour_tuples(cchars_collections: Collection[ContextChar], char):
-    return tmap(
-        lambda cc: (cc.left_char, cc.char) if cc.left_char == char else (cc.right_char, cc.char),
-        cchars_collections
-    )
-
-
-def iter_common_neighbours(*cchars: ContextChar):
-    count = Counter(all_neighbours_list(cchars))
-    for neighbour, freq in count.most_common():
-        if freq == len(cchars):
-            yield neighbour
-        else:
-            break
+    this is useful when we want a context window over a collection,
+    but dont want to miss the first / last chars as middle of the window
+    """
+    left_pad = [l_pad] * pad_num
+    right_pad = [r_pad] * pad_num
+    return chain(*[left_pad + list(p) + right_pad
+                   for p in perms])
 
 
 def assoc_cchars_with_neighbours(cchars, neighbour, context_perms):
+    """
+    will return a tuple for each cchar with specified neighbour at the appropriate place
+    ex: for <1,2,3>, <3,2,1> and neighbour 1 the produced tuples are:
+    (1,2), (2,1)
+    """
     cc_set = set(cchars)
     res = []
-    for left, cchar, right in window(chain([[None] + list(p) + [None] for p in context_perms]), 3):
+    for left, cchar, right in window(perms_as_stream(context_perms), 3):
         if cchar in cc_set:
             if left and left.char == neighbour:
                 res.append((left, cchar))

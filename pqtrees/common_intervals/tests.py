@@ -329,7 +329,7 @@ def test_pq_tree_construction():
         s = IntervalHierarchy.from_irreducible_intervals(ir_intervals)
         pprint(s.nesting_levels)
 
-        pqtree = PQTreeBuilder.from_s(s, None)
+        pqtree = PQTreeBuilder._from_s(s, None)
         print(pqtree.to_parens())
         assert pqtree.to_parens() == "[[0 1 2] [[[3 4 5] 6] 7] 8]"
 
@@ -355,7 +355,7 @@ def test_pq_tree_construction():
 
         pprint(s.nesting_levels)
 
-        pqtree = PQTreeBuilder.from_s(s)
+        pqtree = PQTreeBuilder._from_s(s)
         frontier = pqtree.frontier()
         print(pqtree.to_parens())
         assert pqtree.to_parens() == "[0 (1 2 3) 4]"
@@ -378,7 +378,7 @@ def test_pq_tree_construction():
 
         pprint(s.nesting_levels)
 
-        pqtree = PQTreeBuilder.from_s(s)
+        pqtree = PQTreeBuilder._from_s(s)
         frontier = pqtree.frontier()
 
         print(pqtree.to_parens())
@@ -428,7 +428,7 @@ def test_pq_tree_construction():
 
             pprint(s.nesting_levels)
 
-            pqtree = PQTreeBuilder.from_s(s)
+            pqtree = PQTreeBuilder._from_s(s)
             frontier = pqtree.frontier()
 
             print(pqtree.to_parens())

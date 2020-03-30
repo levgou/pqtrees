@@ -5,7 +5,7 @@ from collections import defaultdict
 from functools import reduce
 from itertools import permutations, product, tee
 from pprint import pprint
-from typing import List, Union, Callable, Dict, Optional
+from typing import List, Union, Callable, Dict, Optional, Iterable
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -41,6 +41,9 @@ def tree_sort_key(node: Union['PQNode', 'LeafNode']):
         return node.ci.first_start
     else:
         return node.interval[0]
+
+
+TreeNode = Union['PQNode', 'LeafNode']
 
 
 class PQNode:
@@ -99,6 +102,19 @@ class PQNode:
         self.interval = tuple(map(denormalizer.get, self.interval))
         for c in self.children:
             c.translate(denormalizer)
+
+    def iter(self, parent: Optional['PQNode'] = None) -> Iterable[TreeNode]:
+        yield self, parent
+        for c in self.children:
+            yield from c.iter(self)
+
+    def replace_child(self, child: TreeNode, *with_nodes: TreeNode):
+        child_index = self.children.index(child)
+        self.children = tuple(
+            *self.children[:child_index],
+            *with_nodes,
+            *self.children[child_index + 1:]
+        )
 
 
 class QNode(PQNode):
@@ -204,6 +220,9 @@ class LeafNode:
     def translate(self, denormalizer: Dict[int, object]):
         self.ci.sign = denormalizer[self.ci.first_start]
 
+    def iter(self, parent: Optional['PQNode']):
+        yield self, parent
+
 
 class PQTree:
     def __init__(self, root) -> None:
@@ -230,19 +249,22 @@ class PQTree:
         kwargs = {"indent": 2} if pretty else {}
         return json.dumps(self.dict_repr(), **kwargs)
 
+    def __iter__(self):
+        return self.root.iter()
+
 
 class PQTreeBuilder:
     @classmethod
-    def from_perms(cls, perms):
-        normalized_perms, denormalize_dict = cls.normalize_perms(perms)
+    def from_perms(cls, perms) -> PQTree:
+        normalized_perms, denormalize_dict = cls._normalize_perms(perms)
         # common_intervals = trivial_common_k_with_singletons(*normalized_perms)
         common_intervals = common_k_indexed_with_singletons(*normalized_perms)
         ir_intervals = ReduceIntervals.reduce(common_intervals)
         s = IntervalHierarchy.from_irreducible_intervals(ir_intervals)
-        return cls.from_s(s, denormalize_dict)
+        return cls._from_s(s, denormalize_dict)
 
     @classmethod
-    def normalize_perms(cls, perms):
+    def _normalize_perms(cls, perms):
         l_perms0 = list(perms[0])
 
         if l_perms0 == list(range(len(l_perms0))):
@@ -255,7 +277,7 @@ class PQTreeBuilder:
         return norm_perms, denormalizer
 
     @classmethod
-    def from_s(cls, s_intervals: IntervalHierarchy, denormalizer: Optional[Dict[Index, object]] = None) -> 'PQTree':
+    def _from_s(cls, s_intervals: IntervalHierarchy, denormalizer: Optional[Dict[Index, object]] = None) -> 'PQTree':
         construction_lut = {}
         nodes_by_level = defaultdict(list)
         processed_intervals = set()
@@ -265,7 +287,8 @@ class PQTreeBuilder:
 
             if ci in processed_intervals:
                 continue
-            processed_intervals.add(ci)
+            else:
+                processed_intervals.add(ci)
 
             if ci.is_trivial():
                 cls._leaf_case(ci, construction_lut, nodes_by_level, s_intervals)
@@ -380,8 +403,4 @@ class PQTreeVisualizer:
 
 
 if __name__ == '__main__':
-    # known_example()
-    # known_e2e()
-    # known_e2e_2()
-
-    1
+    PQTreeVisualizer.show(PQTreeBuilder.from_perms(["ABC", "CAB"]))
