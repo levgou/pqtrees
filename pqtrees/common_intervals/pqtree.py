@@ -15,6 +15,7 @@ from funcy import pairwise, lmap
 
 from pqtrees.common_intervals.common_interval import CommonInterval
 from pqtrees.common_intervals.generate_s import IntervalHierarchy
+from pqtrees.common_intervals.perm_helpers import all_indices
 from pqtrees.common_intervals.preprocess_find import common_k_indexed_with_singletons
 from pqtrees.common_intervals.proj_types import Interval, Index
 from pqtrees.common_intervals.reduce_intervals import ReduceIntervals
@@ -44,6 +45,14 @@ def tree_sort_key(node: Union['PQNode', 'LeafNode']):
 
 
 TreeNode = Union['PQNode', 'LeafNode']
+
+
+def gen_denormalize(denormalizer: Dict[int, object]):
+    def denormalize(char: int):
+        denorm = denormalizer[char]
+        return denorm.org if hasattr(denorm, 'org') else denorm
+
+    return denormalize
 
 
 class PQNode:
@@ -98,8 +107,8 @@ class PQNode:
         f_size = reduce(operator.mul, children_frontier_sizes, node_multiply_factor)
         return f_size
 
-    def translate(self, denormalizer: Dict[int, object]):
-        self.interval = tuple(map(denormalizer.get, self.interval))
+    def translate(self, denormalizer: Callable[[int], object]):
+        self.interval = tuple(map(denormalizer, self.interval))
         for c in self.children:
             c.translate(denormalizer)
 
@@ -217,8 +226,8 @@ class LeafNode:
     def approx_frontier_size(self):
         return 1
 
-    def translate(self, denormalizer: Dict[int, object]):
-        self.ci.sign = denormalizer[self.ci.first_start]
+    def translate(self, denormalizer: Callable[[int], object]):
+        self.ci.sign = denormalizer(self.ci.first_start)
 
     def iter(self, parent: Optional['PQNode']):
         yield self, parent
@@ -304,12 +313,12 @@ class PQTreeBuilder:
         return PQTree(root)
 
     @classmethod
-    def post_process_tree(cls, root: PQNode, denormalizer: Dict[Index, object]):
+    def post_process_tree(cls, root: PQNode, denormalizer_dict: Dict[Index, object]):
         root.sort()
         root.immute()
 
-        if denormalizer:
-            root.translate(denormalizer)
+        if denormalizer_dict:
+            root.translate(gen_denormalize(denormalizer_dict))
 
         return root
 
@@ -373,18 +382,30 @@ class PQTreeBuilder:
 
 class PQTreeVisualizer:
     NODE_COLORS = {
-        QNode: '#32a852',
-        PNode: '#9032a8',
-        LeafNode: '#c7b17d'
+        'Q': '#32a852',
+        'P': '#9032a8',
+        'L': '#c7b17d'
     }
+
+    SUFFIXES = "*+%$#@&~^?<"
 
     @classmethod
     def show(cls, pqtree: PQTree):
         g = nx.DiGraph()
 
+        def child_str(children: list, idx):
+            children_str = lmap(str, children)
+            child_str = children_str[idx]
+            if children_str.count(child_str) == 1:
+                return child_str
+            all_idx = all_indices(children_str, child_str)
+            occur_num = all_idx.index(idx)
+            return f"{child_str}{PQTreeVisualizer.SUFFIXES[occur_num]}"
+
         def rec_construct_graph(node):
             children = getattr(node, 'children', [])
-            [g.add_edge(node, child) for child in children]
+            children_strs = [child_str(children, idx) for idx, _ in enumerate(children)]
+            [g.add_edge(str(node), child) for child in children_strs]
             [rec_construct_graph(child) for child in children]
 
         rec_construct_graph(pqtree.root)
@@ -396,11 +417,15 @@ class PQTreeVisualizer:
         plt.title('PQTree')
         pos = graphviz_layout(g, prog='dot')
 
-        node_colors = lmap(lambda n: cls.NODE_COLORS[n.__class__], g.nodes)
+        node_colors = lmap(lambda n: cls.NODE_COLORS[n[0]], g.nodes)
 
         nx.draw(g, pos, with_labels=True, node_size=NODE_SIZE, node_shape='8', node_color=node_colors)
         plt.show()
 
 
 if __name__ == '__main__':
-    PQTreeVisualizer.show(PQTreeBuilder.from_perms(["ABC", "CAB"]))
+    pqtree = PQTreeBuilder.from_perms(
+        [(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15), (14, 10, 12, 7, 1, 3, 5, 13, 8, 2, 6, 11, 9, 4, 15)])
+    print(pqtree.to_parens())
+    print(pqtree.to_json(pretty=True))
+    PQTreeVisualizer.show(pqtree)

@@ -1,5 +1,5 @@
 import operator
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, namedtuple
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import reduce, partial
@@ -14,7 +14,7 @@ from pqtrees.common_intervals.perm_helpers import (
     assoc_cchars_with_neighbours,
     tmap, tfilter, tfilter1)
 
-from pqtrees.common_intervals.pqtree import PQTreeBuilder, PQTree, LeafNode, QNode, PNode
+from pqtrees.common_intervals.pqtree import PQTreeBuilder, PQTree, LeafNode, QNode, PNode, PQTreeVisualizer
 from pqtrees.common_intervals.trivial import window
 from pqtrees.iterator_product import IterProduct
 from pqtrees.common_intervals.generalized_letters import (
@@ -23,6 +23,8 @@ from pqtrees.common_intervals.generalized_letters import (
 
 Translation = Set[Mapping[Tuple[ContextChar, ContextChar], MergedChar]]
 CPermutations = Sequence[Sequence[ContextChar]]
+
+TranslatedChar = namedtuple('TranslatedChar', ['val', 'org'])
 
 
 class PQTreeDup:
@@ -89,13 +91,14 @@ class PQTreeDup:
 
         p1 = perms[0]
         norm_p1 = range(len(p1))
+        translated_p1 = tuple(TranslatedChar(val, org) for val, org in zip(norm_p1, p1))
 
         translations = defaultdict(list)
         for i, val in enumerate(p1):
             translations[val].append(norm_p1[i])
 
         iters = lmap(lambda p: cls.perm_variations(p, translations), perms[1:])
-        for perm_set in IterProduct.iproduct([tuple(norm_p1)], *iters):
+        for perm_set in IterProduct.iproduct([translated_p1], *iters):
             yield perm_set
 
     @classmethod
@@ -117,7 +120,8 @@ class PQTreeDup:
 
             for c in perm:
                 index_in_trans = indices_in_trans_order[c]
-                variation.append(trans[c][index_in_trans])
+                cur_trans = trans[c][index_in_trans]
+                variation.append(TranslatedChar(cur_trans, c))
                 indices_in_trans_order[c] += 1
 
             yield tuple(variation)
@@ -352,4 +356,13 @@ if __name__ == '__main__':
     # PQTreeVisualizer.show(PQTreeBuilder.from_perms(((0, 1, 2, 3, 4), (0, 4, 3, 1, 2))))
     # PQTreeVisualizer.show(PQTreeBuilder.from_perms(((0, 4, 2, 3, 1), (0, 1, 3, 4, 2))))
     # PQTreeVisualizer.show(PQTreeBuilder.from_perms((('a', 'e', 'c', 'd', 'b'), ('a', 'b', 'd', 'e', 'c'))))
-    pass
+    dup_perms = [
+        (0, 1, 2, 3, 4, 5, 1, 7, 5, 9),
+        (9, 5, 7, 1, 3, 1, 5, 4, 2, 0)
+    ]
+    l = list(PQTreeDup.from_perms(dup_perms))
+    pqtree = l[0]
+
+    print(pqtree.to_parens())
+    print(pqtree.to_json(pretty=True))
+    PQTreeVisualizer.show(pqtree)

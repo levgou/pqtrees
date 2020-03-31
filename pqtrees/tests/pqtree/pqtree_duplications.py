@@ -203,6 +203,7 @@ def test_pqtree_with_merges():
     for ps in perms:
         PQTreeDup.from_perms_with_merge(ps)
 
+
 if __name__ == '__main__':
     test_perm_space()
     test_reduce_perms()
