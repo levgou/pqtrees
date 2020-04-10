@@ -4,11 +4,11 @@ import operator
 from collections import defaultdict
 from functools import reduce
 from itertools import permutations, product, tee
-from pprint import pprint
-from typing import List, Union, Callable, Dict, Optional, Iterable
+from typing import List, Union, Callable, Dict, Optional, Iterable, Mapping
 
 import matplotlib.pyplot as plt
 import networkx as nx
+from frozendict import frozendict
 from networkx.drawing.nx_agraph import graphviz_layout
 
 from funcy import pairwise, lmap
@@ -19,7 +19,6 @@ from pqtrees.common_intervals.perm_helpers import all_indices
 from pqtrees.common_intervals.preprocess_find import common_k_indexed_with_singletons
 from pqtrees.common_intervals.proj_types import Interval, Index
 from pqtrees.common_intervals.reduce_intervals import ReduceIntervals
-from pqtrees.common_intervals.trivial import trivial_common_k, trivial_common_k_with_singletons
 
 
 def interval_in_interval(small: Interval, big: Interval):
@@ -187,8 +186,12 @@ class PNode(PQNode):
 
 
 class LeafNode:
+    ci: CommonInterval
+    multi_occurrences: Mapping[int, int]
+
     def __init__(self, ci: CommonInterval) -> None:
         self.ci = ci
+        self.multi_occurrences = frozendict({1: 1})
 
     def __str__(self) -> str:
         return "L-" + str(self.ci)
@@ -197,9 +200,17 @@ class LeafNode:
         return self.ci.sign
 
     def dict_repr(self):
+        times_char_occured = sum(self.multi_occurrences.values())
+        mutli_stats = {
+            num_occur: f"{times_occured}:{times_char_occured}" for num_occur, times_occured in
+            self.multi_occurrences.items()
+        }
+
         return {
             "type": "LEAF",
-            "char": self.ci.sign
+            "char": self.ci.sign,
+            "multi": self.multi,
+            "multi_stats": mutli_stats
         }
 
     def immute(self):
@@ -209,7 +220,8 @@ class LeafNode:
         return False
 
     def frontier(self):
-        yield str(self.ci.first_end)
+        for multiplier in self.multi_occurrences:
+            yield str(self.ci.sign) * multiplier
 
     def __eq__(self, other):
         if not isinstance(other, LeafNode):
@@ -224,13 +236,17 @@ class LeafNode:
         return hash(self.ci)
 
     def approx_frontier_size(self):
-        return 1
+        return len(self.multi_occurrences)
 
     def translate(self, denormalizer: Callable[[int], object]):
         self.ci.sign = denormalizer(self.ci.first_start)
 
     def iter(self, parent: Optional['PQNode']):
         yield self, parent
+
+    @property
+    def multi(self):
+        return set(self.multi_occurrences) != {1}
 
 
 class PQTree:
@@ -247,12 +263,17 @@ class PQTree:
     def approx_frontier_size(self):
         """
         Calculates approximate frontier size -
-        in case there are same strings - they'll counted for each occurrence
+        in case there are same strings - they'll be counted for each occurrence
         """
         return self.root.approx_frontier_size()
 
     def dict_repr(self) -> dict:
-        return {"root": self.root.dict_repr()}
+        has_multi_chars = any(l.multi for l in self.iter_leafs())
+        return {
+            "approx_front_size": self.approx_frontier_size(),
+            "has_multi_chars": has_multi_chars,
+            "root": self.root.dict_repr(),
+        }
 
     def to_json(self, pretty=False) -> str:
         kwargs = {"indent": 2} if pretty else {}
@@ -260,6 +281,11 @@ class PQTree:
 
     def __iter__(self):
         return self.root.iter()
+
+    def iter_leafs(self) -> Iterable[LeafNode]:
+        for node, _ in iter(self):
+            if isinstance(node, LeafNode):
+                yield node
 
 
 class PQTreeBuilder:

@@ -24,9 +24,7 @@ for i, ps in enumerate([perms1, perms2, perms3], 1):
 
     for i, p in enumerate(ps, 1):
         print(f"{i})", ",".join(map(lambda x: str(x+1), p)))
-
     # print("$" * 50)
-
     # print("[")
     # for p in ps:
     #     print(f"{tuple(p)},")

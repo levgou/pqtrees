@@ -385,8 +385,6 @@ def test_pq_tree_construction():
         assert pqtree.to_parens() == "[0 (1 2 3 [4 5]) 6 7 8 9]"
         assert strs.issubset(frontier), strs - frontier
 
-        # pqtree.show()
-
     def simple_pq_tree_size_tests():
         tests = [
             (
@@ -529,41 +527,54 @@ def test_json_repr():
     ]
     tree = PQTreeBuilder.from_perms(perms)
     assert tree.dict_repr() == {
-        'root': {
-            'type': 'QNode',
-            'children': [
-                {'type': 'LEAF', 'char': '0'},
-                {
-                    'type': 'PNode',
-                    'children': [
-                        {'type': 'LEAF', 'char': '1'},
-                        {'type': 'LEAF', 'char': '2'},
-                        {'type': 'LEAF', 'char': '3'},
-                        {
-                            'type': 'QNode',
-                            'children': [
-                                {'type': 'LEAF', 'char': '4'},
-                                {'type': 'LEAF', 'char': '5'}
-                            ]
-                        }
-                    ]
-                },
-                {'type': 'LEAF', 'char': '6'},
-                {'type': 'LEAF', 'char': '7'},
-                {'type': 'LEAF', 'char': '8'},
-                {'type': 'LEAF', 'char': '9'}
-            ]
-        }
-    }
-
-    assert tree.to_json() == '{"root": {"type": "QNode",' \
-                             ' "children": [{"type": "LEAF", "char": "0"}, ' \
-                             '{"type": "PNode", "children": [{"type": "LEAF", "char": "1"}, ' \
-                             '{"type": "LEAF", "char": "2"}, {"type": "LEAF", "char": "3"}, ' \
-                             '{"type": "QNode", "children": [{"type": "LEAF", "char": "4"}, ' \
-                             '{"type": "LEAF", "char": "5"}]}]}, {"type": "LEAF", "char": "6"}, ' \
-                             '{"type": "LEAF", "char": "7"}, {"type": "LEAF", "char": "8"},' \
-                             ' {"type": "LEAF", "char": "9"}]}}'
+        'approx_front_size': 96,
+        'has_multi_chars': False,
+        'root': {'children': [
+            {'char': '0',
+             'multi': False,
+             'multi_stats': {1: '1:1'},
+             'type': 'LEAF'},
+            {'children': [
+                {'char': '1',
+                 'multi': False,
+                 'multi_stats': {1: '1:1'},
+                 'type': 'LEAF'},
+                {'char': '2',
+                 'multi': False,
+                 'multi_stats': {1: '1:1'},
+                 'type': 'LEAF'},
+                {'char': '3',
+                 'multi': False,
+                 'multi_stats': {1: '1:1'},
+                 'type': 'LEAF'},
+                {'children': [
+                    {'char': '4',
+                     'multi': False,
+                     'multi_stats': {1: '1:1'},
+                     'type': 'LEAF'},
+                    {'char': '5',
+                     'multi': False,
+                     'multi_stats': {1: '1:1'},
+                     'type': 'LEAF'}],
+                    'type': 'QNode'}],
+                'type': 'PNode'},
+            {'char': '6',
+             'multi': False,
+             'multi_stats': {1: '1:1'},
+             'type': 'LEAF'},
+            {'char': '7',
+             'multi': False,
+             'multi_stats': {1: '1:1'},
+             'type': 'LEAF'},
+            {'char': '8',
+             'multi': False,
+             'multi_stats': {1: '1:1'},
+             'type': 'LEAF'},
+            {'char': '9',
+             'multi': False,
+             'multi_stats': {1: '1:1'},
+             'type': 'LEAF'}],
+            'type': 'QNode'}}
 
 
 if __name__ == '__main__':

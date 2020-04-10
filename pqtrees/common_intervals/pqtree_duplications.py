@@ -1,28 +1,32 @@
 import operator
+from _operator import itemgetter
 from collections import Counter, defaultdict, namedtuple
 from copy import deepcopy
 from dataclasses import dataclass
-from functools import reduce, partial
+from functools import reduce
 from itertools import product, permutations, chain
 from typing import Tuple, Collection, List, Dict, Optional, Sequence, Set, Mapping
 
 from frozendict import frozendict
-from funcy import lmap, flatten, select_values, lfilter, select_keys, merge
+from funcy import lmap, flatten, select_values, lfilter, merge, get_in
 
-from pqtrees.common_intervals.perm_helpers import (
-    is_list_consecutive, all_indices, irange, tmap1, group_by_attr, sflatmap1, num_appear,
-    assoc_cchars_with_neighbours,
-    tmap, tfilter, tfilter1)
-
-from pqtrees.common_intervals.pqtree import PQTreeBuilder, PQTree, LeafNode, QNode, PNode, PQTreeVisualizer
-from pqtrees.common_intervals.trivial import window
-from pqtrees.iterator_product import IterProduct
 from pqtrees.common_intervals.generalized_letters import (
     MultipleOccurrenceChar as MultiChar, ContextChar, MergedChar, ContextPerm,
     char_neighbour_tuples, iter_common_neighbours)
 
+from pqtrees.common_intervals.perm_helpers import (
+    irange, tmap1, group_by_attr, sflatmap1, num_appear,
+    assoc_cchars_with_neighbours,
+    tmap, iter_char_occurrence, diff_abc, diff_len)
+
+from pqtrees.common_intervals.pqtree import PQTreeBuilder, PQTree, LeafNode, QNode, PNode, PQTreeVisualizer
+from pqtrees.common_intervals.proj_types import Permutations
+from pqtrees.common_intervals.trivial import window
+from pqtrees.iterator_product import IterProduct
+
 Translation = Set[Mapping[Tuple[ContextChar, ContextChar], MergedChar]]
 CPermutations = Sequence[Sequence[ContextChar]]
+MultiCharIndex = Mapping[int, Dict[int, MultiChar]]
 
 TranslatedChar = namedtuple('TranslatedChar', ['val', 'org'])
 
@@ -47,6 +51,21 @@ class PQTreeDup:
         raw_tree = PQTreeBuilder.from_perms(trans_perms)
         final_tree = cls.process_merged_chars(raw_tree)
         return final_tree
+
+    @classmethod
+    def from_perms_wth_multi(cls, perms) -> Optional[PQTree]:
+        if len(set(perms[0])) == len(perms[0]):
+            return PQTreeBuilder.from_perms(perms)
+
+        multi_perms = cls.reduce_multi_chars(perms)
+        norm_perms, multi_char_indices = cls.multi_chars_to_regular_chars(multi_perms)
+
+        if diff_abc(norm_perms) or diff_len(norm_perms):
+            return None
+
+        norm_tree = PQTreeBuilder.from_perms(norm_perms)
+        multi_tree = cls.update_multi_leafs(norm_tree, multi_char_indices)
+        return multi_tree
 
     @classmethod
     def process_merged_chars(cls, raw_tree: PQTree):
@@ -235,24 +254,8 @@ class PQTreeDup:
         return tmap(translate_perm, cperms)
 
     @classmethod
-    def can_reduce_chars(cls, id_perm, others):
-        count = Counter(id_perm)
-        more_than_once = {k: v for k, v in count.items() if v > 1}
-
-        compactable_chars = []
-        for char in more_than_once:
-            for perm in others:
-                indices = all_indices(perm, char)
-                if not is_list_consecutive(indices):
-                    break
-            else:
-                compactable_chars.append(char)
-
-        return {char: n for char, n in count.items() if char in compactable_chars}
-
-    @classmethod
-    def reduce_multi_chars(cls, perms):
-        reducibale_chars = cls.can_reduce_chars(perms[0], perms[1:])
+    def reduce_multi_chars1(cls, perms: Permutations):
+        reducibale_chars = cls.find_reduciable_chars(perms[0], perms[1:])
         multi_chars = {char: MultiChar(char, count) for char, count in reducibale_chars.items()}
 
         def reduce_perm(perm):
@@ -271,7 +274,51 @@ class PQTreeDup:
         return reduced_perms
 
     @classmethod
-    def to_context_chars(cls, perms):
+    def reduce_multi_chars(cls, perms: Permutations):
+        final_perms = []
+        for perm in perms:
+            final_perm = []
+            for char, occur_num in iter_char_occurrence(perm):
+                if occur_num > 1:
+                    final_perm.append(MultiChar(char, occur_num))
+                else:
+                    final_perm.append(char)
+
+            final_perms.append(tuple(final_perm))
+        return tuple(final_perms)
+
+    @classmethod
+    def multi_chars_to_regular_chars(cls, perms: Permutations) -> Tuple[Permutations, MultiCharIndex]:
+        """
+        remove multi char, but return a dict that will map perm:index to MultiChars
+        {
+            0: {0: MultiCHar(...), ...},
+            ...,
+            k: {..., k: MultiChar(...)}
+        }
+
+        This is done in order to construct the pqtree - where MultiChars cab be equal to their original chars
+        But after construction we can retrieve the information in the MultiChars
+        """
+        multichar_index = defaultdict(dict)
+        norm_perms = []
+
+        for perm_idx, perm in enumerate(perms):
+            norm_perm = []
+            for char_idx, char in enumerate(perm):
+                if not isinstance(char, MultiChar):
+                    norm_perm.append(char)
+                else:
+                    multichar_index[perm_idx][char_idx] = char
+                    norm_perm.append(char.char)
+
+            else:
+                norm_perms.append(tuple(norm_perm))
+
+        return tuple(norm_perms), frozendict(multichar_index)
+
+    @classmethod
+    def to_context_chars(cls, perms: Permutations):
         return tuple(
             tmap1(ContextChar.from_perm_index, p, irange(p))
             for p in perms
@@ -350,6 +397,25 @@ class PQTreeDup:
             if trans := try_translate_pairing(char_wise_pairing):
                 return trans
         return None
+
+    @classmethod
+    def update_multi_leafs(cls, norm_tree: PQTree, multi_char_indices: MultiCharIndex):
+        def multi_char_from(_perm_index, _index_in_perm) -> Optional[MultiChar]:
+            return get_in(multi_char_indices, [_perm_index, _index_in_perm])
+
+        multi_tree = deepcopy(norm_tree)
+        for leaf in multi_tree.iter_leafs():
+            leaf.multi_occurrences = {1: 0}
+            indeces_in_perms = map(itemgetter(0), leaf.ci.intervals)
+            for perm_index, index_in_perm in enumerate(indeces_in_perms):
+                if multi_char := multi_char_from(perm_index, index_in_perm):
+                    leaf.multi_occurrences[multi_char.count] = leaf.multi_occurrences.get(multi_char.count, 0) + 1
+                else:
+                    leaf.multi_occurrences[1] += 1
+
+            leaf.multi_occurrences = frozendict(leaf.multi_occurrences)
+
+        return multi_tree
 
 
 if __name__ == '__main__':

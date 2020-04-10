@@ -4,6 +4,7 @@ from typing import Iterable, Sized, Callable, Sequence
 
 from funcy import group_by, flatten, chain, select_keys
 
+from pqtrees.common_intervals.proj_types import Permutations
 from pqtrees.common_intervals.trivial import window
 
 
@@ -25,8 +26,44 @@ def is_list_consecutive(lst):
     return consecutive_list == sorted_list
 
 
+def iter_char_occurrence(seq: Sequence):
+    """
+    example:
+    GeeeEEKKKss -> (G, 1), (e, 3), (E, 2), (K, 3), (s, 2)
+    """
+    idx = 0
+    it = tuple(seq) + ("#@$@#$@#$@#",)
+    while idx < len(it) - 1:
+        count = 1
+        while it[idx] == it[idx + 1]:
+            idx += 1
+            count += 1
+
+            if idx + 1 == len(it):
+                break
+
+        yield it[idx], count
+        idx += 1
+
+
 def all_eq(*items):
     return items.count(items[0]) == len(items)
+
+
+def same_abc(perms: Permutations):
+    return all_eq(*map(frozenset, perms))
+
+
+def diff_abc(perms: Permutations):
+    return not same_abc(perms)
+
+
+def same_len(collections: Iterable[Sequence]):
+    return all_eq(*map(len, collections))
+
+
+def diff_len(perms: Permutations):
+    return not same_len(perms)
 
 
 def subd_dicts_eq(keys: set, *objs: object):

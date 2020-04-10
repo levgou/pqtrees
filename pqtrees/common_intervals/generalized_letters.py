@@ -7,7 +7,7 @@ from typing import Tuple, Dict, Optional, List, Collection, Mapping
 from frozendict import frozendict
 from funcy import select_keys, lfilter
 
-from pqtrees.common_intervals.perm_helpers import subd_dicts_eq, flatmap, tmap, all_eq
+from pqtrees.common_intervals.perm_helpers import flatmap, tmap, all_eq
 
 
 @dataclass(frozen=True)
