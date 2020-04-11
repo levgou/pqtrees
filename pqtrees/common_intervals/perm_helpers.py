@@ -2,7 +2,7 @@ import operator
 from functools import partial
 from typing import Iterable, Sized, Callable, Sequence
 
-from funcy import group_by, flatten, chain, select_keys
+from funcy import group_by, flatten, chain, select_keys, merge_with
 
 from pqtrees.common_intervals.proj_types import Permutations
 from pqtrees.common_intervals.trivial import window
@@ -44,6 +44,13 @@ def iter_char_occurrence(seq: Sequence):
 
         yield it[idx], count
         idx += 1
+
+
+def invert_dict_multi_val(d: dict):
+    """
+    example: {1:2, 3:2} -> {2, (1, 3)}
+    """
+    return merge_with(tuple, *({val: key} for key, val in d.items()))
 
 
 def all_eq(*items):

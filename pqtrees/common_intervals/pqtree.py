@@ -118,7 +118,7 @@ class PQNode:
 
     def replace_child(self, child: TreeNode, *with_nodes: TreeNode):
         child_index = self.children.index(child)
-        self.children = tuple(
+        self.children = (
             *self.children[:child_index],
             *with_nodes,
             *self.children[child_index + 1:]
@@ -413,39 +413,59 @@ class PQTreeVisualizer:
         'L': '#c7b17d'
     }
 
+    NODE_SIZE = 5000
+    FIG_EDGE_SIZE = 8
+    NODE_SHAPE = '8'  # hexagonal
+
     SUFFIXES = "*+%$#@&~^?<"
 
     @classmethod
-    def show(cls, pqtree: PQTree):
-        g = nx.DiGraph()
+    def gen_leaf_strs(cls, pqtree: PQTree):
+        leaf_str_reprs = lmap(str, pqtree.iter_leafs())
+        leaf_suffixes = {l: cls.SUFFIXES for l in leaf_str_reprs}
 
-        def child_str(children: list, idx):
-            children_str = lmap(str, children)
-            child_str = children_str[idx]
-            if children_str.count(child_str) == 1:
-                return child_str
-            all_idx = all_indices(children_str, child_str)
-            occur_num = all_idx.index(idx)
-            return f"{child_str}{PQTreeVisualizer.SUFFIXES[occur_num]}"
+        leaf_strs = {}
+        for leaf in pqtree.iter_leafs():
+            leaf_str = str(leaf)
+            if leaf_str_reprs.count(leaf_str) == 1:
+                leaf_strs[leaf] = leaf_str
+            else:
+                leaf_strs[leaf] = leaf_str + leaf_suffixes[leaf_str][0]
+                leaf_suffixes[leaf_str] = leaf_suffixes[leaf_str][1:]
+        return leaf_strs
+
+    @classmethod
+    def show(cls, pqtree: PQTree, figure_index=1, skip_show=False):
+        g = nx.DiGraph()
+        leaf_strs = cls.gen_leaf_strs(pqtree)
+
+        def child_str(child):
+            if isinstance(child, LeafNode):
+                return leaf_strs[child]
+            return str(child)
 
         def rec_construct_graph(node):
             children = getattr(node, 'children', [])
-            children_strs = [child_str(children, idx) for idx, _ in enumerate(children)]
+            children_strs = map(child_str, children)
             [g.add_edge(str(node), child) for child in children_strs]
             [rec_construct_graph(child) for child in children]
 
         rec_construct_graph(pqtree.root)
 
-        NODE_SIZE = 5000
-        FIG_EDGE_SIZE = 8
-
-        plt.figure(1, figsize=(FIG_EDGE_SIZE, FIG_EDGE_SIZE))
+        plt.figure(figure_index, figsize=(cls.FIG_EDGE_SIZE, cls.FIG_EDGE_SIZE))
         plt.title('PQTree')
         pos = graphviz_layout(g, prog='dot')
 
         node_colors = lmap(lambda n: cls.NODE_COLORS[n[0]], g.nodes)
 
-        nx.draw(g, pos, with_labels=True, node_size=NODE_SIZE, node_shape='8', node_color=node_colors)
+        nx.draw(g, pos, with_labels=True, node_size=cls.NODE_SIZE, node_shape=cls.NODE_SHAPE, node_color=node_colors)
+        if not skip_show:
+            plt.show()
+
+    @classmethod
+    def show_all(cls, *pqtrees: PQTree):
+        for i, tree in enumerate(pqtrees):
+            cls.show(tree, i, True)
         plt.show()
 
 

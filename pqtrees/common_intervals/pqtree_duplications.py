@@ -10,6 +10,7 @@ from typing import Tuple, Collection, List, Dict, Optional, Sequence, Set, Mappi
 from frozendict import frozendict
 from funcy import lmap, flatten, select_values, lfilter, merge, get_in
 
+from pqtrees.common_intervals.common_interval import CommonInterval
 from pqtrees.common_intervals.generalized_letters import (
     MultipleOccurrenceChar as MultiChar, ContextChar, MergedChar, ContextPerm,
     char_neighbour_tuples, iter_common_neighbours)
@@ -17,7 +18,7 @@ from pqtrees.common_intervals.generalized_letters import (
 from pqtrees.common_intervals.perm_helpers import (
     irange, tmap1, group_by_attr, sflatmap1, num_appear,
     assoc_cchars_with_neighbours,
-    tmap, iter_char_occurrence, diff_abc, diff_len)
+    tmap, iter_char_occurrence, diff_abc, diff_len, invert_dict_multi_val)
 
 from pqtrees.common_intervals.pqtree import PQTreeBuilder, PQTree, LeafNode, QNode, PNode, PQTreeVisualizer
 from pqtrees.common_intervals.proj_types import Permutations
@@ -49,7 +50,7 @@ class PQTreeDup:
             return None
 
         raw_tree = PQTreeBuilder.from_perms(trans_perms)
-        final_tree = cls.process_merged_chars(raw_tree)
+        final_tree = cls.process_merged_chars(raw_tree, translation)
         return final_tree
 
     @classmethod
@@ -68,21 +69,35 @@ class PQTreeDup:
         return multi_tree
 
     @classmethod
-    def process_merged_chars(cls, raw_tree: PQTree):
+    def process_merged_chars(cls, raw_tree: PQTree,
+                             translation: Set[Mapping[Tuple[ContextChar, ContextChar], MergedChar]]):
         tree_copy = deepcopy(raw_tree)
+        reverse_translation = invert_dict_multi_val(translation.pop())
         for node, parent in tree_copy:
             if not isinstance(node, LeafNode):
                 continue
             if not isinstance(node.ci.alt_sign, MergedChar):
                 continue
 
-            mc = node.ci.alt_sign
+            mc: MergedChar = node.ci.alt_sign
+            cc1, cc2 = reverse_translation[mc][0]
+            first_ci_start = node.ci.first_start
+            first_leaf_ci = CommonInterval((first_ci_start, first_ci_start))
+            first_leaf_ci.sign = cc1.char
+            second_leaf_ci = CommonInterval((first_ci_start + 1, first_ci_start + 1))
+            second_leaf_ci.sign = cc2.char
+            first_leaf = LeafNode(first_leaf_ci)
+            second_leaf = LeafNode(second_leaf_ci)
             # if parent is a Q node just accept children as leafs,
             # same behaviour in case the chars always show up in the same order
+            # otherwise add an Q node as a child - and split the node as its leaf children
             if isinstance(parent, PNode) or len(mc.char_orders) == 1:
-                parent.replace_child(node, LeafNode())
+                parent.replace_child(node, first_leaf, second_leaf)
             else:
-                parent.replace_child(node, QNode(LeafNode()))
+                parent.replace_child(node,
+                                     QNode((first_ci_start, first_ci_start + 1)).with_children(
+                                         (first_leaf, second_leaf)))
+        return tree_copy
 
     @classmethod
     def has_duplications(cls, perm):

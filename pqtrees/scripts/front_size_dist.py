@@ -184,8 +184,8 @@ def main():
     # plt.show()
     # plt.hist(can_compact_nums, bins=3)
     # plt.show()
-    plt.hist(can_merge_nums, bins=3)
-    plt.show()
+    # plt.hist(can_merge_nums, bins=3)
+    # plt.show()
 
 
 if __name__ == '__main__':
