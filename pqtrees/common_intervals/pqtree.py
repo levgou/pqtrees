@@ -19,6 +19,7 @@ from pqtrees.common_intervals.perm_helpers import all_indices
 from pqtrees.common_intervals.preprocess_find import common_k_indexed_with_singletons
 from pqtrees.common_intervals.proj_types import Interval, Index
 from pqtrees.common_intervals.reduce_intervals import ReduceIntervals
+from pqtrees.iterator_product import IterProduct
 
 
 def interval_in_interval(small: Interval, big: Interval):
@@ -170,9 +171,10 @@ class PNode(PQNode):
         return QNode(self.interval).with_children(self.children)
 
     def frontier(self):
-        for p in product(*[c.frontier() for c in self.children]):
-            front = "".join(p)
-            for perm in permutations(front):
+
+        children_fronts = [c.frontier() for c in self.children]
+        for p in IterProduct.iproduct(*children_fronts):
+            for perm in permutations(p):
                 yield "".join(perm)
 
     def __eq__(self, other):
@@ -258,7 +260,7 @@ class PQTree:
         return self.root.to_parens()
 
     def frontier(self):
-        return set(self.root.frontier())
+        return self.root.frontier()
 
     def approx_frontier_size(self):
         """

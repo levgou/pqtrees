@@ -88,9 +88,14 @@ class PQTreeDup:
             second_leaf_ci.sign = cc2.char
             first_leaf = LeafNode(first_leaf_ci)
             second_leaf = LeafNode(second_leaf_ci)
-            # if parent is a Q node just accept children as leafs,
+            # if parent is a P node just accept children as leafs,
             # same behaviour in case the chars always show up in the same order
             # otherwise add an Q node as a child - and split the node as its leaf children
+
+            # if parent is a P node - transform merged char to child QNode
+            # in case the parent is Q - if the merged char is first or last in children order
+            # lift leafs to parent
+            # otherwise, the merged char in the middle of its parent - same as P case
             if isinstance(parent, PNode) or len(mc.char_orders) == 1:
                 parent.replace_child(node, first_leaf, second_leaf)
             else:

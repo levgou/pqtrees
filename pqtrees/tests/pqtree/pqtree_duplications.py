@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 import time
 
 from pprint import pprint
@@ -195,7 +195,7 @@ def test_pqtree_after_reduce_chars():
 
 
 def test_pqtree_after_reduce_chars_rand_examples():
-    ITERATIONS = 10
+    ITERATIONS = 1000
 
     merged = 0
     rts = []
@@ -204,7 +204,7 @@ def test_pqtree_after_reduce_chars_rand_examples():
         iter_stats = {}
 
         # ------------------------- Generation of permutations -------------------------
-        id_perm = list(range(1, 11))
+        id_perm = list(range(1, 10))
         duplication_mutations(id_perm, 2)
 
         other_perms = [list(id_perm), list(id_perm)]
@@ -234,7 +234,7 @@ def test_pqtree_after_reduce_chars_rand_examples():
 
         # verify tree with multi chars contains in its frontier one of the best trees
         try:
-            front = pq.frontier()
+            front = set(pq.frontier())
             assert any(front.issuperset(t.frontier()) for t in only_best_sized)
         except:
             print(ps)
@@ -243,7 +243,7 @@ def test_pqtree_after_reduce_chars_rand_examples():
         else:
             rts.append(iter_stats)
 
-    print(f"multi merged: {merged}")
+    print(f"multi merged: {merged} / {ITERATIONS}")
     lmap(print, rts)
 
 
@@ -407,11 +407,17 @@ def test_pqtree_with_merges():
             (1, 2, 1, 3, 5)
         ),
 
-        # had some bug with 0 node
         (
-            (1, 2, 3, 0, 1),
-            (1, 2, 1, 3, 0)
+            (1, 2, 3, 5, 1),
+            (1, 2, 3, 1, 5),
+            (1, 2, 5, 3, 1)
         ),
+
+        # had some bug with 0 node
+        # (
+        #     (1, 2, 3, 0, 1),
+        #     (1, 2, 1, 3, 0)
+        # ),
 
         # random generated failed test
         (
@@ -424,13 +430,20 @@ def test_pqtree_with_merges():
     for ps in perms:
         pq = PQTreeDup.from_perms_with_merge(ps)
         all_possibilities = list(PQTreeDup.from_perms(ps))
-        best_size = all_possibilities[0].approx_frontier_size()
+        best_size = min(t.approx_frontier_size() for t in all_possibilities)
         only_best_sized = lfilter(lambda t: t.approx_frontier_size() == best_size, all_possibilities)
 
         try:
             assert pq.approx_frontier_size() == best_size
+            assert len(list(pq.frontier())) == best_size
             assert any(pq.to_parens() == t.to_parens() for t in only_best_sized)
+
         except:
+            print(f"best no opt: {best_size}, best with merge: {pq.approx_frontier_size()}")
+            print(f"Merged: {pq.to_parens()}")
+            print("any same front: ", [t.approx_frontier_size() for t in only_best_sized])
+            print(ps)
+            print([t.to_parens() for t in only_best_sized])
             # PQTreeVisualizer.show_all(pq, *only_best_sized)
             raise
 
@@ -441,7 +454,7 @@ def test_pqtree_with_merges_rand():
     merged = 0
 
     for i in range(ITERATIONS):
-        id_perm = list(range(1, 11))
+        id_perm = list(range(1, 10))
         duplication_mutations(id_perm, 1)
 
         other_perms = [list(id_perm), list(id_perm)]
@@ -478,6 +491,6 @@ if __name__ == '__main__':
     # test_pqtree_after_reduce_chars()
     # test_context_char_conversion()
     # test_merge_chars()
-    # test_pqtree_with_merges()
-    test_pqtree_after_reduce_chars_rand_examples()
+    test_pqtree_with_merges()
+    # test_pqtree_after_reduce_chars_rand_examples()
     # test_pqtree_with_merges_rand()

@@ -6,9 +6,11 @@ from pqtrees.common_intervals.bsc import bsc, bsc_k
 from pqtrees.common_intervals.common_interval import CommonInterval
 from pqtrees.common_intervals.generate_s import IntervalHierarchy
 from pqtrees.common_intervals.lhp import lhp
+from pqtrees.common_intervals.perm_helpers import tmap
 from pqtrees.common_intervals.pqtree import PQTree, PQTreeBuilder, PQTreeVisualizer
 from pqtrees.common_intervals.reduce_candidate import rc
 from pqtrees.common_intervals.reduce_intervals import ReduceIntervals
+from pqtrees.common_intervals.string_mutations import mutate_collection
 from pqtrees.common_intervals.trivial import trivial_common, trivial_common_k, trivial_common_k_with_singletons
 from pqtrees.common_intervals.preprocess_find import common_k_indexed_with_singletons, common_k_indexed
 from timeit import default_timer as timer
@@ -356,7 +358,8 @@ def test_pq_tree_construction():
         pprint(s.nesting_levels)
 
         pqtree = PQTreeBuilder._from_s(s)
-        frontier = pqtree.frontier()
+        frontier = list(pqtree.frontier())
+        assert pqtree.approx_frontier_size() == len(frontier)
         print(pqtree.to_parens())
         assert pqtree.to_parens() == "[0 (1 2 3) 4]"
         assert strs.issubset(frontier), strs - frontier
@@ -439,6 +442,25 @@ def test_pq_tree_construction():
         for t in tests:
             run_tests(*t)
 
+    def rand_size_tests():
+        ITERATIONS = 1000
+
+        for i in range(ITERATIONS):
+            id_perm = list(range(1, 10))
+
+            other_perms = [list(id_perm), list(id_perm)]
+            for p in other_perms:
+                mutate_collection(p, 2)
+
+            ps = tmap(tuple, (id_perm, *other_perms))
+
+            pq = PQTreeBuilder.from_perms(ps)
+            assert pq.approx_frontier_size() == len(list(pq.frontier())), [pq.to_parens(),
+                                                                           set(pq.frontier()),
+                                                                           pq.approx_frontier_size(),
+                                                                           len(list(pq.frontier())),
+                                                                           len(set(pq.frontier()))]
+
     def string_inputs_pqtree():
         def test_case(length, num_perm):
             assert length <= 10
@@ -515,6 +537,7 @@ def test_pq_tree_construction():
     known_e2e()
     known_e2e_2()
     simple_pq_tree_size_tests()
+    rand_size_tests()
     string_inputs_pqtree()
     compare_oren()
     compare_oren_from_rand()
