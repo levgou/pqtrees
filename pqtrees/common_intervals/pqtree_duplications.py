@@ -8,7 +8,7 @@ from itertools import product, permutations, chain
 from typing import Tuple, Collection, List, Dict, Optional, Sequence, Set, Mapping
 
 from frozendict import frozendict
-from funcy import lmap, flatten, select_values, lfilter, merge, get_in
+from funcy import lmap, flatten, select_values, lfilter, merge, get_in, lremove
 
 from pqtrees.common_intervals.common_interval import CommonInterval
 from pqtrees.common_intervals.generalized_letters import (
@@ -50,7 +50,7 @@ class PQTreeDup:
             return None
 
         raw_tree = PQTreeBuilder.from_perms(trans_perms)
-        final_tree = cls.process_merged_chars(raw_tree, translation)
+        final_tree = cls.process_merged_chars(raw_tree, translation, perms)
         return final_tree
 
     @classmethod
@@ -70,7 +70,9 @@ class PQTreeDup:
 
     @classmethod
     def process_merged_chars(cls, raw_tree: PQTree,
-                             translation: Set[Mapping[Tuple[ContextChar, ContextChar], MergedChar]]):
+                             translation: Set[Mapping[Tuple[ContextChar, ContextChar], MergedChar]],
+                             perms):
+
         tree_copy = deepcopy(raw_tree)
         reverse_translation = invert_dict_multi_val(translation.pop())
         for node, parent in tree_copy:
@@ -88,21 +90,53 @@ class PQTreeDup:
             second_leaf_ci.sign = cc2.char
             first_leaf = LeafNode(first_leaf_ci)
             second_leaf = LeafNode(second_leaf_ci)
+            new_qnode = QNode((first_ci_start, first_ci_start + 1)).with_children((first_leaf, second_leaf))
             # if parent is a P node just accept children as leafs,
             # same behaviour in case the chars always show up in the same order
             # otherwise add an Q node as a child - and split the node as its leaf children
 
             # if parent is a P node - transform merged char to child QNode
             # in case the parent is Q - if the merged char is first or last in children order
-            # lift leafs to parent
+            # try lift leafs to parent -
             # otherwise, the merged char in the middle of its parent - same as P case
-            if isinstance(parent, PNode) or len(mc.char_orders) == 1:
+
+            # if isinstance(parent, PNode) or len(mc.char_orders) == 1:
+            #     parent.replace_child(node, first_leaf, second_leaf)
+            # else:
+            #     parent.replace_child(node,
+            #                          QNode((first_ci_start, first_ci_start + 1)).with_children(
+            #                              (first_leaf, second_leaf)))
+            if isinstance(parent, PNode):
+                parent.replace_child(node, new_qnode)
+            # elif node in [parent.children[0], parent.children[-1]] and mc.other_side_same:
+            #     parent.replace_child(node, first_leaf, second_leaf)
+            # elif mc.context_same:
+            #     parent.replace_child(node, first_leaf, second_leaf)
+            # else:
+            #     parent.replace_child(node, new_qnode)
+            elif cls.possible_raise_merged_char(perms, node, first_leaf, second_leaf, parent):
                 parent.replace_child(node, first_leaf, second_leaf)
             else:
-                parent.replace_child(node,
-                                     QNode((first_ci_start, first_ci_start + 1)).with_children(
-                                         (first_leaf, second_leaf)))
+                parent.replace_child(node, new_qnode)
+
         return tree_copy
+
+    @classmethod
+    def possible_raise_merged_char(cls, perms, node: LeafNode, first_leaf: LeafNode, second_leaf: LeafNode,
+                                   parent: QNode) -> bool:
+        """
+        This function could hurt perf - might be wiser way to figure whether we can lift merged char to parent
+        """
+
+        parent_copy = deepcopy(parent)
+        parent_copy.replace_child(node, first_leaf, second_leaf)
+        frontier = set(parent_copy.frontier())
+        len_of_frontier = len(next(iter(frontier)))
+
+        for perm in perms:
+            if all(''.join(map(str, w)) not in frontier for w in window(perm, len_of_frontier)):
+                return False
+        return True
 
     @classmethod
     def has_duplications(cls, perm):
@@ -367,15 +401,36 @@ class PQTreeDup:
         return IterProduct.iproduct(*[permutations(cchars) for cchars in seqs_to_pair])
 
     @classmethod
-    def try_merge_cchar(cls, already_used: set, translation: set, cchars, neighbour, context_perms):
+    def try_merge_cchar(cls, already_used: set, translation: set, cchars: list, neighbour, context_perms):
         cchars_with_neighbours_tuples = assoc_cchars_with_neighbours(cchars, neighbour, context_perms)
+
+        # todo: should try merge biggest context possible - this it will QNode for sure
+
+        # if neighbour == cchars[0].char:
+        # same characters should be merged with multi char to avoid tree reconstruction confusion
+        # return None, None
 
         if any(cc in already_used for cc in chain(cchars_with_neighbours_tuples)):
             return None, None
 
         # best_replacement = cls.most_agreed_replacement(cchars_with_neighbours_tuples)
 
+        # neighbours = lremove(cchars.__contains__, chain(*cchars_with_neighbours_tuples))
+        # other_side_of_neighbours = {
+        #     c.left_char if c.left_char != cchars[0].char else c.right_char
+        #     for c in neighbours
+        # }
+        #
+        # other_side_of_chars = {
+        #     c.left_char if c.left_char != neighbour else c.right_char
+        #     for c in cchars
+        # }
+        #
+        # other_side_of_neighbour_always_same = len(other_side_of_neighbours) == 1
+        # context_always_same = len(other_side_of_chars) == 1 and other_side_of_neighbour_always_same
+
         merged_char = MergedChar.from_occurrences(*char_neighbour_tuples(cchars, neighbour))
+
         updated_translation = {
             *translation,
             frozendict({t: merged_char for t in cchars_with_neighbours_tuples})

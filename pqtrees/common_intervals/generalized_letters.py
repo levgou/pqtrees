@@ -26,6 +26,8 @@ class MultipleOccurrenceChar:
 class MergedChar:
     char_orders: Tuple[Tuple[object, object], ...]
     counts: Mapping[object, int]
+    # other_side_same: bool
+    # context_same: bool
 
     def __str__(self):
         return f"{self.char_orders[0][0]}+{self.char_orders[0][1]}"
@@ -34,9 +36,12 @@ class MergedChar:
         return f"Merged{self.char_orders}"
 
     @classmethod
-    def from_occurrences(cls, *occurrences: Tuple[object, object]):
+    def from_occurrences(cls,
+                         # other_side_same: bool, context_same: bool,
+                         *occurrences: Tuple[object, object]):
         counts = Counter(occurrences)
-        return MergedChar(tuple(sorted(count[0] for count in counts.most_common())), frozendict(counts))
+        char_orders = tuple(sorted(count[0] for count in counts.most_common()))
+        return MergedChar(char_orders, frozendict(counts))
 
 
 @dataclass(frozen=True)

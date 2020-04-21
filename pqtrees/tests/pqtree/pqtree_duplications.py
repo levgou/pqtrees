@@ -9,7 +9,7 @@ from funcy import lmap, lfilter
 
 from pqtrees.common_intervals.generalized_letters import MultipleOccurrenceChar as MultiChar, ContextChar, MergedChar
 from pqtrees.common_intervals.perm_helpers import tmap
-from pqtrees.common_intervals.pqtree import LeafNode, PQTreeVisualizer
+from pqtrees.common_intervals.pqtree import LeafNode, PQTreeVisualizer, PQTreeBuilder
 from pqtrees.common_intervals.pqtree_duplications import PQTreeDup
 from pqtrees.common_intervals.string_mutations import duplication_mutations, mutate_collection
 
@@ -397,55 +397,63 @@ def test_merge_chars():
 
 def test_pqtree_with_merges():
     perms = [
-        (
-            (1, 2, 3, 1),
-            (1, 2, 1, 3)
-        ),
-
-        (
-            (1, 2, 3, 5, 1),
-            (1, 2, 1, 3, 5)
-        ),
-
-        (
-            (1, 2, 3, 5, 1),
-            (1, 2, 3, 1, 5),
-            (1, 2, 5, 3, 1)
-        ),
-
+        # (
+        #     (1, 2, 3, 1),
+        #     (1, 2, 1, 3)
+        # ),
+        #
+        # (
+        #     (1, 2, 3, 5, 1),
+        #     (1, 2, 1, 3, 5)
+        # ),
+        #
+        # (
+        #     (1, 2, 3, 5, 1),
+        #     (1, 2, 3, 1, 5),
+        #     (1, 2, 5, 3, 1)
+        # ),
+        #
         # had some bug with 0 node
         # (
         #     (1, 2, 3, 0, 1),
         #     (1, 2, 1, 3, 0)
         # ),
 
-        # random generated failed test
-        (
-            (1, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10),
-            (1, 2, 6, 4, 4, 3, 5, 7, 8, 9, 10),
-            (1, 2, 3, 4, 4, 8, 7, 10, 9, 5, 6)
-        )
+        # random generated tests
+        # (
+        #     (1, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10),
+        #     (1, 2, 6, 4, 4, 3, 5, 7, 8, 9, 10),
+        #     (1, 2, 3, 4, 4, 8, 7, 10, 9, 5, 6)
+        # ),
+        # (
+        #     (1, 2, 3, 3, 4, 5, 6, 7, 8, 9),
+        #     (3, 2, 9, 8, 7, 6, 5, 4, 3, 1),
+        #     (1, 2, 9, 8, 7, 6, 5, 4, 3, 3)
+        # ),
+
+        ((1, 1, 2, 3, 4, 5, 6, 7, 8, 9), (1, 2, 1, 3, 4, 5, 6, 7, 8, 9), (1, 1, 2, 3, 4, 6, 5, 8, 7, 9))
     ]
+    for _ in range(100):
+        # sometimes the merges are different between iterations
 
-    for ps in perms:
-        pq = PQTreeDup.from_perms_with_merge(ps)
-        all_possibilities = list(PQTreeDup.from_perms(ps))
-        best_size = min(t.approx_frontier_size() for t in all_possibilities)
-        only_best_sized = lfilter(lambda t: t.approx_frontier_size() == best_size, all_possibilities)
+        for ps in perms:
+            pq = PQTreeDup.from_perms_with_merge(ps)
+            all_possibilities = list(PQTreeDup.from_perms(ps))
+            best_size = min(t.approx_frontier_size() for t in all_possibilities)
+            only_best_sized = lfilter(lambda t: t.approx_frontier_size() == best_size, all_possibilities)
 
-        try:
-            assert pq.approx_frontier_size() == best_size
-            assert len(list(pq.frontier())) == best_size
-            assert any(pq.to_parens() == t.to_parens() for t in only_best_sized)
+            try:
+                assert pq.approx_frontier_size() == best_size
+                assert len(list(pq.frontier())) == best_size
+                assert any(pq.to_parens() == t.to_parens() for t in only_best_sized)
 
-        except:
-            print(f"best no opt: {best_size}, best with merge: {pq.approx_frontier_size()}")
-            print(f"Merged: {pq.to_parens()}")
-            print("any same front: ", [t.approx_frontier_size() for t in only_best_sized])
-            print(ps)
-            print([t.to_parens() for t in only_best_sized])
-            # PQTreeVisualizer.show_all(pq, *only_best_sized)
-            raise
+            except:
+                print(f"best no opt: {best_size}, best with merge: {pq.approx_frontier_size()}")
+                print(f"Merged: {pq.to_parens()}")
+                print(ps)
+                print([t.to_parens() for t in only_best_sized])
+                # PQTreeVisualizer.show_all(pq, *only_best_sized)
+                raise
 
 
 def test_pqtree_with_merges_rand():
@@ -471,14 +479,19 @@ def test_pqtree_with_merges_rand():
             merged += 1
 
         all_possibilities = list(PQTreeDup.from_perms(ps))
-        best_size = all_possibilities[0].approx_frontier_size()
+        best_size = min(t.approx_frontier_size() for t in all_possibilities)
         only_best_sized = lfilter(lambda t: t.approx_frontier_size() == best_size, all_possibilities)
 
         try:
             assert pq.approx_frontier_size() == best_size
             assert any(pq.to_parens() == t.to_parens() for t in only_best_sized)
         except:
+
+            print(f"best no opt: {best_size}, best with merge: {pq.approx_frontier_size()}")
+            print(f"Merged: {pq.to_parens()}")
             print(ps)
+            print([t.to_parens() for t in only_best_sized])
+
             # PQTreeVisualizer.show_all(pq, *only_best_sized)
             raise
 
@@ -494,3 +507,5 @@ if __name__ == '__main__':
     test_pqtree_with_merges()
     # test_pqtree_after_reduce_chars_rand_examples()
     # test_pqtree_with_merges_rand()
+
+    # PQTreeVisualizer.show(PQTreeBuilder.from_perms(((1,  2, 3, 4, 5, 6, 7, 8, 9), (1, 2,  3, 4, 5, 6, 7, 8, 9), (1, 2, 3, 4, 6, 5, 8, 7, 9))))
