@@ -1,6 +1,6 @@
 import operator
 from functools import partial
-from typing import Iterable, Sized, Callable, Sequence
+from typing import Iterable, Sized, Callable, Sequence, Tuple
 
 from funcy import group_by, flatten, chain, select_keys, merge_with
 
@@ -113,6 +113,54 @@ def tmap2(f: Callable[[object, object], object], arg1: object, arg2: object, it:
     return tmap(partial(f, arg1, arg2), it)
 
 
+def smap(f: Callable[[object], object], it: Iterable):
+    return set(map(f, it))
+
+
+def smap1(f: Callable[[object, object], object], arg1: object, it: Iterable):
+    return smap(partial(f, arg1), it)
+
+
+def smap2(f: Callable[[object, object], object], arg1: object, arg2: object, it: Iterable):
+    return smap(partial(f, arg1, arg2), it)
+
+
+def filter_attr_eq(attr: str, eq_to: object, it: Iterable):
+    return filter(lambda x: getattr(x, attr) == eq_to, it)
+
+
+def lfilter_attr_eq(attr: str, eq_to: object, it: Iterable):
+    return list(filter_attr_eq(attr, eq_to, it))
+
+
+def tfilter_attr_eq(attr: str, eq_to: object, it: Iterable):
+    return tuple(filter_attr_eq(attr, eq_to, it))
+
+
+def filter_f_eq(f: str, eq_to: object, it: Iterable):
+    return filter(lambda x: getattr(x, f)() == eq_to, it)
+
+
+def lfilter_f_eq(f: str, eq_to: object, it: Iterable):
+    return list(filter_f_eq(f, eq_to, it))
+
+
+def tfilter_f_eq(f: str, eq_to: object, it: Iterable):
+    return tuple(filter_f_eq(f, eq_to, it))
+
+
+def filter_fx_eq(f: Callable, eq_to: object, it: Iterable):
+    return filter(lambda x: f(x) == eq_to, it)
+
+
+def lfilter_fx_eq(f: Callable, eq_to: object, it: Iterable):
+    return list(filter_fx_eq(f, eq_to, it))
+
+
+def tfilter_fx_eq(f: Callable, eq_to: object, it: Iterable):
+    return tuple(filter_fx_eq(f, eq_to, it))
+
+
 def tfilter(pred: Callable[[object], bool], it: Iterable):
     return tuple(filter(pred, it))
 
@@ -165,9 +213,17 @@ def group_by_attr(attr: str, it: Iterable):
     return dict(group_by(operator.attrgetter(attr), it))
 
 
+def tsorted(it: Iterable, key=None):
+    return tuple(sorted(it, key=key))
+
+
+def geti(seq: Sequence, i: int, default=None):
+    if i < 0 or i >= len(seq):
+        return default
+    return seq[i]
+
+
 # noinspection PyTypeChecker
-
-
 def perms_as_stream(perms: Sequence[Sequence], l_pad=None, r_pad=None, pad_num=1):
     """
     for a sequence of sequences return an item stream out of those sequences (like chain)

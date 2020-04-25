@@ -5,10 +5,11 @@ from copy import deepcopy
 from dataclasses import dataclass
 from functools import reduce
 from itertools import product, permutations, chain
+from pprint import pprint
 from typing import Tuple, Collection, List, Dict, Optional, Sequence, Set, Mapping
 
 from frozendict import frozendict
-from funcy import lmap, flatten, select_values, lfilter, merge, get_in, lremove
+from funcy import lmap, flatten, select_values, lfilter, merge, get_in, lremove, first
 
 from pqtrees.common_intervals.common_interval import CommonInterval
 from pqtrees.common_intervals.generalized_letters import (
@@ -18,7 +19,7 @@ from pqtrees.common_intervals.generalized_letters import (
 from pqtrees.common_intervals.perm_helpers import (
     irange, tmap1, group_by_attr, sflatmap1, num_appear,
     assoc_cchars_with_neighbours,
-    tmap, iter_char_occurrence, diff_abc, diff_len, invert_dict_multi_val)
+    tmap, iter_char_occurrence, diff_abc, diff_len, invert_dict_multi_val, geti)
 
 from pqtrees.common_intervals.pqtree import PQTreeBuilder, PQTree, LeafNode, QNode, PNode, PQTreeVisualizer
 from pqtrees.common_intervals.proj_types import Permutations
@@ -45,13 +46,10 @@ class PQTreeDup:
 
     @classmethod
     def from_perms_with_merge(cls, perms):
-        trans_perms, translation = cls.merge_multi_chars(perms)
-        if not trans_perms:
-            return None
-
-        raw_tree = PQTreeBuilder.from_perms(trans_perms)
-        final_tree = cls.process_merged_chars(raw_tree, translation, perms)
-        return final_tree
+        for trans_perms, translation in cls.merge_multi_chars(perms):
+            raw_tree = PQTreeBuilder.from_perms(trans_perms)
+            final_tree = cls.process_merged_chars(raw_tree, translation, perms)
+            yield final_tree
 
     @classmethod
     def from_perms_wth_multi(cls, perms) -> Optional[PQTree]:
@@ -283,11 +281,13 @@ class PQTreeDup:
             if len(cc_per_perm[perms[0]]) >= num_appear(perms[0], char) - 1
         ]
 
-        translation = cls.try_merge_chars_no_loss(context_perms, mergable_chars, maybe_no_loss_mergable_chars)
-        if not translation:
-            return None, None
-
-        return cls.translate(context_perms, translation), translation
+        # translation = cls.try_merge_chars_no_loss(context_perms, mergable_chars, maybe_no_loss_mergable_chars)
+        # if not translation:
+        #     return None, None
+        #
+        # return cls.translate(context_perms, translation), translation
+        for translation in cls.try_merge_chars_no_loss(context_perms, mergable_chars, maybe_no_loss_mergable_chars):
+            yield cls.translate(context_perms, translation), translation
 
     @classmethod
     def translate(cls, cperms: CPermutations, translation: Translation):
@@ -381,20 +381,24 @@ class PQTreeDup:
     @classmethod
     def try_merge_chars_no_loss(cls, context_perms: Collection[ContextPerm],
                                 mergable_chars: Dict[object, Dict[Collection, List[ContextChar]]],
-                                chars_to_merge: Collection) -> Optional[Translation]:
-        translation = set()
+                                chars_to_merge: Collection,
+                                cur_translation: set = None) -> Optional[Translation]:
+        if not chars_to_merge:
+            yield cur_translation
+
+        translation = cur_translation or set()
 
         for char in chars_to_merge:
             char_count = next(iter(mergable_chars[char])).count(char)
-            if char_trans := cls.try_merge_char(context_perms, mergable_chars[char]):
+            for char_trans in cls.try_merge_char(context_perms, mergable_chars[char]):
                 if char_count == len(char_trans):
                     # we could compute all and remove merged char whose occurrences don't agree on the order
                     _redundant = char_trans.pop()
 
-                translation |= char_trans
-            else:
-                return None
-        return translation
+                yield from cls.try_merge_chars_no_loss(context_perms,
+                                                       mergable_chars,
+                                                       set(chars_to_merge) - {char},
+                                                       translation | char_trans)
 
     @classmethod
     def iter_pairing_space(cls, seqs_to_pair):
@@ -467,11 +471,14 @@ class PQTreeDup:
 
                 return None
 
+        # l = list(cls.iter_pairing_space(cur_mergable_chars.values()))
+        # pprint(l)
         for order_pairing in cls.iter_pairing_space(cur_mergable_chars.values()):
-            char_wise_pairing = zip(*order_pairing)
+            char_wise_pairing = list(zip(*order_pairing))
+            # print(char_wise_pairing)
             if trans := try_translate_pairing(char_wise_pairing):
-                return trans
-        return None
+                yield trans
+        # return None
 
     @classmethod
     def update_multi_leafs(cls, norm_tree: PQTree, multi_char_indices: MultiCharIndex):

@@ -143,6 +143,14 @@ class QNode(PQNode):
             yield str("".join(p))
             yield str("".join(reversed(p)))
 
+    def no_reverse_frontier(self):
+        for p in product(*[c.frontier() for c in self.children]):
+            yield str("".join(p))
+
+    def reverse_frontier(self):
+        for s in self.no_reverse_frontier():
+            yield s[::-1]
+
     def __eq__(self, other):
         if not isinstance(other, QNode):
             return False
@@ -288,6 +296,17 @@ class PQTree:
         for node, _ in iter(self):
             if isinstance(node, LeafNode):
                 yield node
+
+    def parent_of(self, node: TreeNode) -> Optional[PQNode]:
+        for n, parent in self:
+            if n == node:
+                return parent
+        return None
+
+    def __str__(self):
+        return f"PQ<{self.to_parens()}>"
+
+    __repr__ = __str__
 
 
 class PQTreeBuilder:
