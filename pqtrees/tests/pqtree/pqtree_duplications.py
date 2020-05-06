@@ -8,7 +8,8 @@ from frozendict import frozendict
 from funcy import lmap, lfilter
 
 from pqtrees.common_intervals.generalized_letters import MultipleOccurrenceChar as MultiChar, ContextChar, MergedChar
-from pqtrees.common_intervals.perm_helpers import tmap, tfilter_attr_eq, tfilter_f_eq, tfilter_fx_eq, smap
+from pqtrees.common_intervals.perm_helpers import tmap, tfilter_attr_eq, tfilter_f_eq, tfilter_fx_eq, smap, \
+    iter_char_occurrence
 from pqtrees.common_intervals.pqtree import LeafNode, PQTreeVisualizer, PQTreeBuilder, PQTree
 from pqtrees.common_intervals.pqtree_duplications import PQTreeDup
 from pqtrees.common_intervals.string_mutations import duplication_mutations, mutate_collection
@@ -191,7 +192,7 @@ def test_pqtree_after_reduce_chars():
             continue
 
         assert lmap(LeafNode.dict_repr, pqtree.iter_leafs()) == leaf_dicts
-        assert pqtree.frontier() == frontier
+        assert set(pqtree.frontier()) == frontier
 
 
 def test_pqtree_after_reduce_chars_rand_examples():
@@ -330,7 +331,7 @@ def test_merge_chars():
                 (1, 2, 1, 3)
             ),
 
-            "translations": [
+            "translations": {
                 (
                     (mc12, 3, 1),
                     (mc12, 1, 3)
@@ -344,7 +345,7 @@ def test_merge_chars():
                     (mc121, 3, 1),
                     (1, mc121, 3)
                 ),
-            ],
+            },
             "should_translate": True
         },
         # ---------------------------- Test 2 ----------------------------
@@ -354,12 +355,12 @@ def test_merge_chars():
                 (2, 1, 1, 3, 5, 4)
             ),
 
-            "translations": [
+            "translations": {
                 (
                     (mc121, 3, 4, 1, 5),
                     (mc121, 1, 3, 5, 4)
                 )
-            ],
+            },
             "should_translate": True
         },
         # ---------------------------- Test 3 ----------------------------
@@ -369,12 +370,12 @@ def test_merge_chars():
                 (2, 1)
             ),
 
-            "translations": [
+            "translations": {
                 (
                     (1, 2),
                     (2, 1)
                 )
-            ],
+            },
             "should_translate": False
         },
         {
@@ -382,36 +383,38 @@ def test_merge_chars():
                 (1, 2, 3, 4, 5, 1),
                 (1, 3, 2, 5, 4, 1)
             ),
-            "translations": (),
+            "translations": set(),
             "should_translate": False
 
         }
     ])
 
     for perms, expects, should_translate in tests:
-        res, translation = PQTreeDup.merge_multi_chars(perms)
+        results_and_translations = list(PQTreeDup.merge_multi_chars(perms))
+        res = {rt[0] for rt in results_and_translations}
+        translation = {rt[1] for rt in results_and_translations}
 
         assert (res or not expects) and (translation or not should_translate)
-        assert any(res == expect for expect in expects) or not expects
+        assert res == expects
 
 
 def test_pqtree_with_merges():
     perms = [
-        (
-            (1, 2, 3, 1),
-            (1, 2, 1, 3)
-        ),
-
-        (
-            (1, 2, 3, 5, 1),
-            (1, 2, 1, 3, 5)
-        ),
-
-        (
-            (1, 2, 3, 5, 1),
-            (1, 2, 3, 1, 5),
-            (1, 2, 5, 3, 1)
-        ),
+        # (
+        #     (1, 2, 3, 1),
+        #     (1, 2, 1, 3)
+        # ),
+        #
+        # (
+        #     (1, 2, 3, 5, 1),
+        #     (1, 2, 1, 3, 5)
+        # ),
+        #
+        # (
+        #     (1, 2, 3, 5, 1),
+        #     (1, 2, 3, 1, 5),
+        #     (1, 2, 5, 3, 1)
+        # ),
 
         # had some bug with 0 node
         # (
@@ -420,19 +423,21 @@ def test_pqtree_with_merges():
         # ),
 
         # # random generated tests
-        (
-            (1, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10),
-            (1, 2, 6, 4, 4, 3, 5, 7, 8, 9, 10),
-            (1, 2, 3, 4, 4, 8, 7, 10, 9, 5, 6)
-        ),
+        # (
+        #     (1, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10),
+        #     (1, 2, 6, 4, 4, 3, 5, 7, 8, 9, 10),
+        #     (1, 2, 3, 4, 4, 8, 7, 10, 9, 5, 6)
+        # ),
+        #
+        # (
+        #     (1, 2, 3, 3, 4, 5, 6, 7, 8, 9),
+        #     (3, 2, 9, 8, 7, 6, 5, 4, 3, 1),
+        #     (1, 2, 9, 8, 7, 6, 5, 4, 3, 3)
+        # ),
+        #
+        # ((1, 1, 2, 3, 4, 5, 6, 7, 8, 9), (1, 2, 1, 3, 4, 5, 6, 7, 8, 9), (1, 1, 2, 3, 4, 6, 5, 8, 7, 9)),
 
-        (
-            (1, 2, 3, 3, 4, 5, 6, 7, 8, 9),
-            (3, 2, 9, 8, 7, 6, 5, 4, 3, 1),
-            (1, 2, 9, 8, 7, 6, 5, 4, 3, 3)
-        ),
-
-        ((1, 1, 2, 3, 4, 5, 6, 7, 8, 9), (1, 2, 1, 3, 4, 5, 6, 7, 8, 9), (1, 1, 2, 3, 4, 6, 5, 8, 7, 9))
+        ((1, 2, 3, 4, 5, 6, 7, 7, 8, 9), (1, 2, 3, 6, 5, 7, 4, 7, 8, 9), (1, 2, 3, 4, 5, 6, 7, 8, 9, 7))
     ]
 
     for ps in perms:
@@ -462,7 +467,7 @@ def test_pqtree_with_merges():
 
 
 def test_pqtree_with_merges_rand():
-    ITERATIONS = 10
+    ITERATIONS = 100
 
     merged = 0
 
@@ -476,27 +481,36 @@ def test_pqtree_with_merges_rand():
 
         ps = tmap(tuple, (id_perm, *other_perms))
 
-        pq = PQTreeDup.from_perms_with_merge(ps)
 
-        if not pq:
+        pqs = list(PQTreeDup.from_perms_with_merge(ps))
+
+        if not pqs:
             continue
         else:
             merged += 1
 
+        best_size_found = min(pq.approx_frontier_size() for pq in pqs)
+        only_best_sized_found = tfilter_fx_eq(PQTree.approx_frontier_size, best_size_found, pqs)
+
         all_possibilities = list(PQTreeDup.from_perms(ps))
         best_size = min(t.approx_frontier_size() for t in all_possibilities)
         only_best_sized = lfilter(lambda t: t.approx_frontier_size() == best_size, all_possibilities)
+        only_best_sized_parens = smap(PQTree.to_parens, only_best_sized)
 
         try:
-            assert pq.approx_frontier_size() == best_size
-            assert any(pq.to_parens() == t.to_parens() for t in only_best_sized)
+            assert best_size_found == best_size
+            assert all(len(list(pq.frontier())) == best_size for pq in only_best_sized_found)
+            assert any(pq.to_parens() in only_best_sized_parens for pq in only_best_sized_found)
         except:
+            print("same cahrs together:", any(any(o[1] != 1 for o in iter_char_occurrence(p)) for p in ps))
 
-            print(f"best no opt: {best_size}, best with merge: {pq.approx_frontier_size()}")
-            print(f"Merged: {pq.to_parens()}")
+            print(f"best no opt: {best_size}, best with merge: {best_size_found}")
+            print(f"Merged best: {[pq.to_parens() for pq in only_best_sized_found]}")
+            print(f"Merged all: {[pq.to_parens() for pq in pqs]}")
             print(ps)
+            print(f"actual front sizes = {[len(list(t.frontier())) for t in only_best_sized]}")
+            print([t.to_parens() for t in all_possibilities])
             print([t.to_parens() for t in only_best_sized])
-
             # PQTreeVisualizer.show_all(pq, *only_best_sized)
             raise
 
@@ -509,11 +523,15 @@ if __name__ == '__main__':
     # test_pqtree_after_reduce_chars()
     # test_context_char_conversion()
     # test_merge_chars()
-    test_pqtree_with_merges()
+    # test_pqtree_with_merges()
     # test_pqtree_after_reduce_chars_rand_examples()
     # test_pqtree_with_merges_rand()
 
-    # print(PQTreeBuilder.from_perms((
-    #     (8, 2, 3, 5, 1),
-    #     (8, 2, 1, 3, 5)
-    # )).to_parens())
+    ps = ((1, 2, 3, 4, 'a', 6, 7, 8, 9), (1, 2, 3, 'a', 9, 6, 7, 8, 4), (1, 4, 2, 3, 'a', 6, 7, 8, 9))
+
+    # best:  ['[1 [[2 3] 4] [4 [5 [[6 7 8] 9]]]]']
+    # Merged best: ['[1 ([2 3] 4 [4 5 [[6 7 8] 9]])]', '[1 ([2 3 4] 4 [5 [[6 7 8] 9]])]']
+
+    print(PQTreeBuilder.from_perms((
+        ps
+    )).to_parens())

@@ -1,6 +1,6 @@
 import operator
 from functools import partial
-from typing import Iterable, Sized, Callable, Sequence, Tuple
+from typing import Iterable, Sized, Callable, Sequence
 
 from funcy import group_by, flatten, chain, select_keys, merge_with
 

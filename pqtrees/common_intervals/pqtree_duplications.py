@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import reduce
 from itertools import product, permutations, chain
 from pprint import pprint
-from typing import Tuple, Collection, List, Dict, Optional, Sequence, Set, Mapping
+from typing import Tuple, Collection, List, Dict, Optional, Sequence, Set, Mapping, Iterable
 
 from frozendict import frozendict
 from funcy import lmap, flatten, select_values, lfilter, merge, get_in, lremove, first
@@ -26,7 +26,7 @@ from pqtrees.common_intervals.proj_types import Permutations
 from pqtrees.common_intervals.trivial import window
 from pqtrees.iterator_product import IterProduct
 
-Translation = Set[Mapping[Tuple[ContextChar, ContextChar], MergedChar]]
+Translation = Tuple[Mapping[Tuple[ContextChar, ContextChar], MergedChar]]
 CPermutations = Sequence[Sequence[ContextChar]]
 MultiCharIndex = Mapping[int, Dict[int, MultiChar]]
 
@@ -68,11 +68,13 @@ class PQTreeDup:
 
     @classmethod
     def process_merged_chars(cls, raw_tree: PQTree,
-                             translation: Set[Mapping[Tuple[ContextChar, ContextChar], MergedChar]],
+                             translation: Tuple[Mapping[Tuple[ContextChar, ContextChar], MergedChar]],
                              perms):
 
+        assert len(translation) == 1
+
         tree_copy = deepcopy(raw_tree)
-        reverse_translation = invert_dict_multi_val(translation.pop())
+        reverse_translation = invert_dict_multi_val(translation[0])
         for node, parent in tree_copy:
             if not isinstance(node, LeafNode):
                 continue
@@ -270,7 +272,9 @@ class PQTreeDup:
     @classmethod
     def merge_multi_chars(cls, perms, merge_settings: MergeSettings = None):
         if not cls.has_duplications(perms[0]):
-            return perms, {}
+            yield perms, frozendict()
+            print("No duplication in perms")
+            return
 
         context_perms = cls.to_context_chars(perms)
         mergable_chars = cls.can_merge_multi_chars(context_perms)
@@ -287,6 +291,11 @@ class PQTreeDup:
         #
         # return cls.translate(context_perms, translation), translation
         for translation in cls.try_merge_chars_no_loss(context_perms, mergable_chars, maybe_no_loss_mergable_chars):
+            if not translation:
+                # yield None, None
+                # print(2222)
+                return
+
             yield cls.translate(context_perms, translation), translation
 
     @classmethod
@@ -382,30 +391,32 @@ class PQTreeDup:
     def try_merge_chars_no_loss(cls, context_perms: Collection[ContextPerm],
                                 mergable_chars: Dict[object, Dict[Collection, List[ContextChar]]],
                                 chars_to_merge: Collection,
-                                cur_translation: set = None) -> Optional[Translation]:
+                                cur_translation: tuple = None) -> Optional[Translation]:
         if not chars_to_merge:
-            yield cur_translation
+            yield cur_translation or ()
 
-        translation = cur_translation or set()
+        translation = cur_translation or ()
 
         for char in chars_to_merge:
             char_count = next(iter(mergable_chars[char])).count(char)
-            for char_trans in cls.try_merge_char(context_perms, mergable_chars[char]):
-                if char_count == len(char_trans):
+            for char_trans in cls.try_merge_char(context_perms, mergable_chars[char], char_count - 1):
+                # if char_count == len(char_trans):
                     # we could compute all and remove merged char whose occurrences don't agree on the order
-                    _redundant = char_trans.pop()
+                    # reduced_trans = char_trans[:-1]
+                # else:
+                #     reduced_trans = char_trans
 
                 yield from cls.try_merge_chars_no_loss(context_perms,
                                                        mergable_chars,
                                                        set(chars_to_merge) - {char},
-                                                       translation | char_trans)
+                                                       (*translation, *char_trans))
 
     @classmethod
     def iter_pairing_space(cls, seqs_to_pair):
         return IterProduct.iproduct(*[permutations(cchars) for cchars in seqs_to_pair])
 
     @classmethod
-    def try_merge_cchar(cls, already_used: set, translation: set, cchars: list, neighbour, context_perms):
+    def try_merge_cchar(cls, already_used: set, translation: list, cchars: list, neighbour, context_perms):
         cchars_with_neighbours_tuples = assoc_cchars_with_neighbours(cchars, neighbour, context_perms)
 
         # todo: should try merge biggest context possible - this it will QNode for sure
@@ -435,10 +446,10 @@ class PQTreeDup:
 
         merged_char = MergedChar.from_occurrences(*char_neighbour_tuples(cchars, neighbour))
 
-        updated_translation = {
+        updated_translation = (
             *translation,
             frozendict({t: merged_char for t in cchars_with_neighbours_tuples})
-        }
+        )
 
         updated_used_set = already_used | set(chain(cchars_with_neighbours_tuples))
 
@@ -447,14 +458,15 @@ class PQTreeDup:
     @classmethod
     def try_merge_char(cls,
                        context_perms: Collection[ContextPerm],
-                       cur_mergable_chars: Dict[Collection, List[ContextChar]]) -> Optional[Translation]:
+                       cur_mergable_chars: Dict[Collection, List[ContextChar]],
+                       num_translations_to_do: int) -> Iterable[Translation]:
 
         def try_translate_pairing(char_pairing, cur_translation=None, already_used=None):
-            cur_translation = cur_translation or set()
+            cur_translation = cur_translation or ()
             already_used = already_used or set()
 
             l_pairing = list(char_pairing)
-            if len(l_pairing) == 0:
+            if len(cur_translation) == num_translations_to_do:
                 return cur_translation
 
             while cur_cchars := l_pairing.pop():
