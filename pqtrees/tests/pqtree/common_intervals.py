@@ -264,7 +264,8 @@ def test_rand_perms(algs: tuple,
                 for p in other_perms:
                     random.shuffle(p)
 
-                t_others = map(tuple, other_perms)
+                t_others = tuple(map(tuple, other_perms))
+                print((tuple(sig_a), *t_others))
                 first_alg_res, first_cur_rt = time_runtime(lambda: first_alg(sig_a, *t_others))
                 total_times[first_alg_name] += first_cur_rt
 
@@ -280,9 +281,9 @@ def test_rand_k_perms_comp_all_algs(*algs):
     # small amount of perms
     test_rand_perms(
         algs,
-        min_len_perm=50,
+        min_len_perm=5,
         max_len_perm=70,
-        perm_len_jump=10,
+        perm_len_jump=1,
         min_num_perms=5,
         max_num_perms=10,
         repeat_test_times=3,
