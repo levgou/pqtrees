@@ -6,7 +6,7 @@ The basic algorithm to find all common intervals of 2 permutation of {1...n}
 from typing import Callable, Iterable, List, Sequence, Set
 
 from pqtrees.common_intervals.common_interval import CommonInterval, CommonIntervalWeakEq
-from pqtrees.common_intervals.proj_types import Index, SigmaFunc, SigmaInvFunc
+from pqtrees.proj_types import Index, SigmaFunc, SigmaInvFunc
 
 
 class IntervalAndFuncs:

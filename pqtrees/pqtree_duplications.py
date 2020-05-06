@@ -5,26 +5,25 @@ from copy import deepcopy
 from dataclasses import dataclass
 from functools import reduce
 from itertools import product, permutations, chain
-from pprint import pprint
-from typing import Tuple, Collection, List, Dict, Optional, Sequence, Set, Mapping, Iterable
+from typing import Tuple, Collection, List, Dict, Optional, Sequence, Mapping, Iterable
 
 from frozendict import frozendict
-from funcy import lmap, flatten, select_values, lfilter, merge, get_in, lremove, first
+from funcy import lmap, flatten, select_values, lfilter, merge, get_in
 
 from pqtrees.common_intervals.common_interval import CommonInterval
-from pqtrees.common_intervals.generalized_letters import (
+from pqtrees.generalized_letters import (
     MultipleOccurrenceChar as MultiChar, ContextChar, MergedChar, ContextPerm,
     char_neighbour_tuples, iter_common_neighbours)
 
-from pqtrees.common_intervals.perm_helpers import (
+from pqtrees.utilities.perm_helpers import (
     irange, tmap1, group_by_attr, sflatmap1, num_appear,
     assoc_cchars_with_neighbours,
-    tmap, iter_char_occurrence, diff_abc, diff_len, invert_dict_multi_val, geti)
+    tmap, iter_char_occurrence, diff_abc, diff_len, invert_dict_multi_val)
 
-from pqtrees.common_intervals.pqtree import PQTreeBuilder, PQTree, LeafNode, QNode, PNode, PQTreeVisualizer
-from pqtrees.common_intervals.proj_types import Permutations
+from pqtrees.pqtree import PQTreeBuilder, PQTree, LeafNode, QNode, PNode, PQTreeVisualizer
+from pqtrees.proj_types import Permutations
 from pqtrees.common_intervals.trivial import window
-from pqtrees.iterator_product import IterProduct
+from pqtrees.utilities.iterator_product import IterProduct
 
 Translation = Tuple[Mapping[Tuple[ContextChar, ContextChar], MergedChar]]
 CPermutations = Sequence[Sequence[ContextChar]]

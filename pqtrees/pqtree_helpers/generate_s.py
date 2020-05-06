@@ -6,7 +6,7 @@ from itertools import chain
 
 from pqtrees.common_intervals.common_interval import CommonInterval
 from pqtrees.common_intervals.preprocess_find import common_k_indexed
-from pqtrees.common_intervals.reduce_intervals import ReduceIntervals
+from pqtrees.pqtree_helpers.reduce_intervals import ReduceIntervals
 
 Arrows = Tuple[Optional[CommonInterval], Optional[CommonInterval],
                Optional[CommonInterval], Optional[CommonInterval]]
@@ -147,6 +147,7 @@ def produce_s_for_example():
 
 if __name__ == '__main__':
     produce_s_for_example()
+
     perms = [
         (0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
         (9, 8, 7, 6, 3, 1, 5, 4, 2, 0)

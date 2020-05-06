@@ -1,6 +1,6 @@
 from typing import Tuple
 
-from pqtrees.common_intervals.proj_types import Index
+from pqtrees.proj_types import Index
 
 
 class CommonInterval:

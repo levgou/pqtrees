@@ -14,12 +14,11 @@ from networkx.drawing.nx_agraph import graphviz_layout
 from funcy import pairwise, lmap
 
 from pqtrees.common_intervals.common_interval import CommonInterval
-from pqtrees.common_intervals.generate_s import IntervalHierarchy
-from pqtrees.common_intervals.perm_helpers import all_indices
+from pqtrees.pqtree_helpers.generate_s import IntervalHierarchy
 from pqtrees.common_intervals.preprocess_find import common_k_indexed_with_singletons
-from pqtrees.common_intervals.proj_types import Interval, Index
-from pqtrees.common_intervals.reduce_intervals import ReduceIntervals
-from pqtrees.iterator_product import IterProduct
+from pqtrees.proj_types import Interval, Index
+from pqtrees.pqtree_helpers.reduce_intervals import ReduceIntervals
+from pqtrees.utilities.iterator_product import IterProduct
 
 
 def interval_in_interval(small: Interval, big: Interval):

@@ -1,18 +1,15 @@
-from collections import namedtuple, defaultdict
 import time
-
-from pprint import pprint
+from collections import namedtuple
 from random import shuffle
 
-from frozendict import frozendict
 from funcy import lmap, lfilter
 
-from pqtrees.common_intervals.generalized_letters import MultipleOccurrenceChar as MultiChar, ContextChar, MergedChar
-from pqtrees.common_intervals.perm_helpers import tmap, tfilter_attr_eq, tfilter_f_eq, tfilter_fx_eq, smap, \
+from pqtrees.generalized_letters import MultipleOccurrenceChar as MultiChar, ContextChar, MergedChar
+from pqtrees.utilities.perm_helpers import tmap, tfilter_fx_eq, smap, \
     iter_char_occurrence
-from pqtrees.common_intervals.pqtree import LeafNode, PQTreeVisualizer, PQTreeBuilder, PQTree
-from pqtrees.common_intervals.pqtree_duplications import PQTreeDup
-from pqtrees.common_intervals.string_mutations import duplication_mutations, mutate_collection
+from pqtrees.pqtree import LeafNode, PQTree
+from pqtrees.pqtree_duplications import PQTreeDup
+from pqtrees.utilities.string_mutations import duplication_mutations, mutate_collection
 
 
 def test_reduce_perms():
@@ -400,42 +397,42 @@ def test_merge_chars():
 
 def test_pqtree_with_merges():
     perms = [
-        # (
-        #     (1, 2, 3, 1),
-        #     (1, 2, 1, 3)
-        # ),
-        #
-        # (
-        #     (1, 2, 3, 5, 1),
-        #     (1, 2, 1, 3, 5)
-        # ),
-        #
-        # (
-        #     (1, 2, 3, 5, 1),
-        #     (1, 2, 3, 1, 5),
-        #     (1, 2, 5, 3, 1)
-        # ),
+        (
+            (1, 2, 3, 1),
+            (1, 2, 1, 3)
+        ),
+
+        (
+            (1, 2, 3, 5, 1),
+            (1, 2, 1, 3, 5)
+        ),
+
+        (
+            (1, 2, 3, 5, 1),
+            (1, 2, 3, 1, 5),
+            (1, 2, 5, 3, 1)
+        ),
 
         # had some bug with 0 node
-        # (
-        #     (1, 2, 3, 0, 1),
-        #     (1, 2, 1, 3, 0)
-        # ),
+        (
+            (1, 2, 3, 0, 1),
+            (1, 2, 1, 3, 0)
+        ),
 
-        # # random generated tests
-        # (
-        #     (1, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10),
-        #     (1, 2, 6, 4, 4, 3, 5, 7, 8, 9, 10),
-        #     (1, 2, 3, 4, 4, 8, 7, 10, 9, 5, 6)
-        # ),
-        #
-        # (
-        #     (1, 2, 3, 3, 4, 5, 6, 7, 8, 9),
-        #     (3, 2, 9, 8, 7, 6, 5, 4, 3, 1),
-        #     (1, 2, 9, 8, 7, 6, 5, 4, 3, 3)
-        # ),
-        #
-        # ((1, 1, 2, 3, 4, 5, 6, 7, 8, 9), (1, 2, 1, 3, 4, 5, 6, 7, 8, 9), (1, 1, 2, 3, 4, 6, 5, 8, 7, 9)),
+        # random generated tests
+        (
+            (1, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10),
+            (1, 2, 6, 4, 4, 3, 5, 7, 8, 9, 10),
+            (1, 2, 3, 4, 4, 8, 7, 10, 9, 5, 6)
+        ),
+
+        (
+            (1, 2, 3, 3, 4, 5, 6, 7, 8, 9),
+            (3, 2, 9, 8, 7, 6, 5, 4, 3, 1),
+            (1, 2, 9, 8, 7, 6, 5, 4, 3, 3)
+        ),
+
+        ((1, 1, 2, 3, 4, 5, 6, 7, 8, 9), (1, 2, 1, 3, 4, 5, 6, 7, 8, 9), (1, 1, 2, 3, 4, 6, 5, 8, 7, 9)),
 
         ((1, 2, 3, 4, 5, 6, 7, 7, 8, 9), (1, 2, 3, 6, 5, 7, 4, 7, 8, 9), (1, 2, 3, 4, 5, 6, 7, 8, 9, 7))
     ]
@@ -518,20 +515,14 @@ def test_pqtree_with_merges_rand():
 
 
 if __name__ == '__main__':
-    # test_perm_space()
-    # test_reduce_perms()
-    # test_pqtree_after_reduce_chars()
-    # test_context_char_conversion()
-    # test_merge_chars()
+    test_perm_space()
+    test_reduce_perms()
+    test_pqtree_after_reduce_chars()
+    test_context_char_conversion()
+    test_merge_chars()
+    test_pqtree_after_reduce_chars_rand_examples()
+
+    # these test will fail due to known bug in merge Context Characters
+    # failing example could be found in the not rand test
     # test_pqtree_with_merges()
-    # test_pqtree_after_reduce_chars_rand_examples()
     # test_pqtree_with_merges_rand()
-
-    ps = ((1, 2, 3, 4, 'a', 6, 7, 8, 9), (1, 2, 3, 'a', 9, 6, 7, 8, 4), (1, 4, 2, 3, 'a', 6, 7, 8, 9))
-
-    # best:  ['[1 [[2 3] 4] [4 [5 [[6 7 8] 9]]]]']
-    # Merged best: ['[1 ([2 3] 4 [4 5 [[6 7 8] 9]])]', '[1 ([2 3 4] 4 [5 [[6 7 8] 9]])]']
-
-    print(PQTreeBuilder.from_perms((
-        ps
-    )).to_parens())

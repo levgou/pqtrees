@@ -1,13 +1,12 @@
 from collections import Counter
 from dataclasses import dataclass, asdict
-from functools import partial
 from itertools import chain
-from typing import Tuple, Dict, Optional, List, Collection, Mapping
+from typing import Tuple, Optional, List, Collection, Mapping
 
 from frozendict import frozendict
 from funcy import select_keys, lfilter
 
-from pqtrees.common_intervals.perm_helpers import flatmap, tmap, all_eq
+from pqtrees.utilities.perm_helpers import flatmap, tmap, all_eq
 
 
 @dataclass(frozen=True)

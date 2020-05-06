@@ -4,7 +4,7 @@ from typing import Iterable, Sized, Callable, Sequence
 
 from funcy import group_by, flatten, chain, select_keys, merge_with
 
-from pqtrees.common_intervals.proj_types import Permutations
+from pqtrees.proj_types import Permutations
 from pqtrees.common_intervals.trivial import window
 
 

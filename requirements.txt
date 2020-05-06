@@ -1,5 +1,4 @@
-docutils>=0.15.2
-pygments>=2.4.2
+notebook
 funcy>=1.14
 networkx>=2.4
 matplotlib>=3.1.1

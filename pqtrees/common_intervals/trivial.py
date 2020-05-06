@@ -3,7 +3,7 @@ from typing import List, Optional, Sequence
 from pqtrees.common_intervals.common_interval import CommonInterval
 from itertools import islice
 
-from pqtrees.common_intervals.proj_types import Index, Interval
+from pqtrees.proj_types import Interval
 
 
 def window(seq, n=2):
