@@ -70,10 +70,10 @@ class PQNode:
     def to_parens(self):
         return " ".join(map(lambda x: x.to_parens(), self.children))
 
-    def dict_repr(self):
+    def dict_repr(self, ommit_multi_info: bool):
         return {
             "type": self.__class__.__name__,
-            "children": [c.dict_repr() for c in self.children]
+            "children": [c.dict_repr(ommit_multi_info) for c in self.children]
         }
 
     def with_children(self, children):
@@ -208,7 +208,7 @@ class LeafNode:
     def to_parens(self):
         return self.ci.sign
 
-    def dict_repr(self):
+    def dict_repr(self, ommit_multi_info: bool):
         times_char_occured = sum(self.multi_occurrences.values())
         mutli_stats = {
             num_occur: f"{times_occured}:{times_char_occured}" for num_occur, times_occured in
@@ -218,8 +218,11 @@ class LeafNode:
         return {
             "type": "LEAF",
             "char": self.ci.sign,
-            "multi": self.multi,
-            "multi_stats": mutli_stats
+
+            **({
+                   "multi": self.multi,
+                   "multi_stats": mutli_stats
+               } if not ommit_multi_info else {})
         }
 
     def immute(self):
@@ -276,17 +279,18 @@ class PQTree:
         """
         return self.root.approx_frontier_size()
 
-    def dict_repr(self) -> dict:
+    def dict_repr(self, ommit_multi_info: bool) -> dict:
         has_multi_chars = any(l.multi for l in self.iter_leafs())
         return {
             "approx_front_size": self.approx_frontier_size(),
-            "has_multi_chars": has_multi_chars,
-            "root": self.root.dict_repr(),
+            "root": self.root.dict_repr(ommit_multi_info),
+
+            **({"has_multi_chars": has_multi_chars} if not ommit_multi_info else {})
         }
 
-    def to_json(self, pretty=False) -> str:
+    def to_json(self, pretty=False, ommit_multi_info=False) -> str:
         kwargs = {"indent": 2} if pretty else {}
-        return json.dumps(self.dict_repr(), **kwargs)
+        return json.dumps(self.dict_repr(ommit_multi_info), **kwargs)
 
     def __iter__(self):
         return self.root.iter()
@@ -428,9 +432,9 @@ class PQTreeBuilder:
 
 class PQTreeVisualizer:
     NODE_COLORS = {
-        'Q': '#32a852',
-        'P': '#9032a8',
-        'L': '#c7b17d'
+        'Q': '#FFD49B',
+        'P': '#9BE9FF',
+        'L': '#90BB3323'
     }
 
     NODE_SIZE = 5000
@@ -455,7 +459,7 @@ class PQTreeVisualizer:
         return leaf_strs
 
     @classmethod
-    def show(cls, pqtree: PQTree, figure_index=1, skip_show=False):
+    def show(cls, pqtree: PQTree, figure_index=1, skip_show=False, title='PQTree'):
         g = nx.DiGraph()
         leaf_strs = cls.gen_leaf_strs(pqtree)
 
@@ -473,12 +477,14 @@ class PQTreeVisualizer:
         rec_construct_graph(pqtree.root)
 
         plt.figure(figure_index, figsize=(cls.FIG_EDGE_SIZE, cls.FIG_EDGE_SIZE))
-        plt.title('PQTree')
+        plt.title(title)
         pos = graphviz_layout(g, prog='dot')
 
         node_colors = lmap(lambda n: cls.NODE_COLORS[n[0]], g.nodes)
 
-        nx.draw(g, pos, with_labels=True, node_size=cls.NODE_SIZE, node_shape=cls.NODE_SHAPE, node_color=node_colors)
+        nx.draw(g, pos, with_labels=True, node_size=cls.NODE_SIZE,
+                node_shape=cls.NODE_SHAPE, node_color=node_colors)
+
         if not skip_show:
             plt.show()
 

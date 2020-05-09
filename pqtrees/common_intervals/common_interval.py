@@ -62,8 +62,12 @@ class CommonInterval:
         assert len(lens) == 1, f"All intervals should be of same len {intervals}"
 
     def __str__(self) -> str:
-        return f'CI{list(self.intervals[0])}' if self.alt_sign is None else self.sign
-        # return f'CI{list(self.intervals)}'
+        if self.alt_sign:
+            return str(self.alt_sign)
+        elif self.first_start == self.first_end:
+            return str(self.first_start)
+        else:
+            return f'CI{list(self.intervals[0])}'
 
     __repr__ = __str__
 
