@@ -1,3 +1,4 @@
+import cProfile
 import time
 from collections import namedtuple
 from random import shuffle
@@ -312,6 +313,29 @@ def test_perm_space():
     print(size)
 
 
+def test_pqtree_with_duplications_rand():
+    ITERATIONS = 10
+
+    for i in range(ITERATIONS):
+        x = 0
+        id_perm = list(range(1, 10))
+        duplication_mutations(id_perm, 2)
+
+        other_perms = [list(id_perm) for _ in range(6)]
+        for p in other_perms:
+            mutate_collection(p, 2)
+
+        ps = tmap(tuple, (id_perm, *other_perms))
+
+        # all_possibilities = list(PQTreeDup.from_perms(ps))
+        # best_size = min(t.approx_frontier_size() for t in all_possibilities)
+        for p in PQTreeDup.from_perms(ps):
+            x += 1
+            # print(2)
+        print(x)
+
+
+
 def test_merge_chars():
     MC = MergedChar.from_occurrences
     Test = namedtuple('Test', ['perms', 'translations', "should_translate"])
@@ -469,8 +493,8 @@ def test_pqtree_with_merges_rand():
     merged = 0
 
     for i in range(ITERATIONS):
-        id_perm = list(range(1, 10))
-        duplication_mutations(id_perm, 1)
+        id_perm = list(range(1, 100))
+        duplication_mutations(id_perm, 5)
 
         other_perms = [list(id_perm), list(id_perm)]
         for p in other_perms:
@@ -509,7 +533,7 @@ def test_pqtree_with_merges_rand():
             print([t.to_parens() for t in all_possibilities])
             print([t.to_parens() for t in only_best_sized])
             # PQTreeVisualizer.show_all(pq, *only_best_sized)
-            raise
+            continue
 
     print(f"merged {merged}")
 
@@ -521,6 +545,9 @@ if __name__ == '__main__':
     test_context_char_conversion()
     test_merge_chars()
     test_pqtree_after_reduce_chars_rand_examples()
+
+    # run bellow to profile the character duplication solution
+    # cProfile.run("test_pqtree_with_duplications_rand()", sort="cumtime")
 
     # these test will fail due to known bug in merge Context Characters
     # failing example could be found in the not rand test

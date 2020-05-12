@@ -208,7 +208,7 @@ class LeafNode:
     def to_parens(self):
         return self.ci.sign
 
-    def dict_repr(self, ommit_multi_info: bool):
+    def dict_repr(self, ommit_multi_info: bool = False):
         times_char_occured = sum(self.multi_occurrences.values())
         mutli_stats = {
             num_occur: f"{times_occured}:{times_char_occured}" for num_occur, times_occured in

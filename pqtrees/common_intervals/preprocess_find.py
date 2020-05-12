@@ -56,7 +56,8 @@ def common_k_indexed(*perms: Sequence) -> List[CommonInterval]:
     perm_id = perms[0]
 
     for l in range(2, len(perm_id) + 1):
-        commons.extend(common_k(perm_id, perms, l))
+        current = common_k(perm_id, perms, l)
+        commons.extend(current)
 
     return commons
 
