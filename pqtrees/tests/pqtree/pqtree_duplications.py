@@ -8,7 +8,7 @@ from funcy import lmap, lfilter
 from pqtrees.generalized_letters import MultipleOccurrenceChar as MultiChar, ContextChar, MergedChar
 from pqtrees.utilities.perm_helpers import tmap, tfilter_fx_eq, smap, \
     iter_char_occurrence
-from pqtrees.pqtree import LeafNode, PQTree
+from pqtrees.pqtree import LeafNode, PQTree, PQTreeVisualizer
 from pqtrees.pqtree_duplications import PQTreeDup
 from pqtrees.utilities.string_mutations import duplication_mutations, mutate_collection
 

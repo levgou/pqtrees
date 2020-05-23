@@ -431,6 +431,7 @@ class PQTreeBuilder:
 
 
 class PQTreeVisualizer:
+    FONT_SIZE = 16
     NODE_COLORS = {
         'Q': '#FFD49B',
         'P': '#9BE9FF',
@@ -482,7 +483,7 @@ class PQTreeVisualizer:
 
         node_colors = lmap(lambda n: cls.NODE_COLORS[n[0]], g.nodes)
 
-        nx.draw(g, pos, with_labels=True, node_size=cls.NODE_SIZE,
+        nx.draw(g, pos, with_labels=True, font_size=cls.FONT_SIZE, font_weight='bold', node_size=cls.NODE_SIZE,
                 node_shape=cls.NODE_SHAPE, node_color=node_colors)
 
         if not skip_show:
