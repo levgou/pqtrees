@@ -6,6 +6,7 @@
 
 PQTree
 ##############
+View pqtrees/docs/PQTree_presentation.pptx for project presentetion.
 
 How to install
 ------------------
